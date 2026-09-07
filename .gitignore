@@ -1,0 +1,26 @@
+# The private-term list must never be committed — it would leak exactly the
+# names it exists to catch.
+.scrub-denylist
+
+# Generated test fixtures: rebuilt by make_fixtures.py, large, and binary.
+scripts/fixtures/
+scripts/__pycache__/
+__pycache__/
+*.pyc
+
+# Never commit media or offload artifacts.
+*.mov
+*.mp4
+*.mxf
+*.wav
+*.lrf
+*.braw
+*.r3d
+*.dng
+offload-report-*.html
+offload-manifest-*.json
+*.mhl
+ascmhl/
+
+# macOS
+.DS_Store
