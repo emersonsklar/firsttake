@@ -16,10 +16,23 @@ nothing about primaries, so a wide-gamut log space (D-Gamut, S-Gamut3.Cine) will
 still render saturated colours wrong, and two cameras processed this way will NOT
 match each other.
 
-Use it to judge **exposure, framing and focus**. Do not use it to judge colour, to
-match angles, or as anything a post house sees as a reference. Get the vendor's own
-LUT for that — this exists so a review copy is watchable tonight rather than
-perfect next week.
+Use it to judge **framing and focus**. Do not use it to judge colour, to match
+angles, or as anything a post house sees as a reference. Get the vendor's own LUT
+for that — this exists so a review copy is watchable tonight rather than perfect
+next week.
+
+⚠️ **MEASURED against a vendor transform, 2026-09-09: this runs about half a stop
+BRIGHT.** Compared frame-for-frame with DJI's official D-Log M to Rec.709 LUT on
+real footage, every region came out 10-16 points high on a 0-100 scale — wall 53.7
+vs 66.6, skin 72.9 vs 86.4, dark trousers 39.1 vs 49.3. Hue held; level did not.
+
+The cause is the white anchor. This maps 90% white to 95.3 IRE, while vendor display
+transforms deliberately hold highlight headroom and land diffuse white nearer 86.
+So **do not judge exposure from this** — the one job a review proxy has. Judging
+exposure needs the vendor LUT, or the grey-card reading straight off the camera.
+
+Not yet recalibrated: matching one vendor LUT on one clip would be overfitting, and
+the honest fix is a lower diffuse-white target verified across several transforms.
 
 Anchors come from the analyzer's PROFILES table, i.e. the manufacturers' published
 transfer functions, not from taste.
@@ -121,6 +134,8 @@ def main(argv: list[str]) -> int:
     print(f"  black {p['black']:.1f} -> 0.0 | 18% grey {p['grey']:.1f} -> "
           f"{OUT_GREY*100:.1f} | 90% white {p['white']:.1f} -> {OUT_WHITE*100:.1f} IRE")
     print("  TONE ONLY — not a colour conversion, and angles will not match.")
+    print("  ⚠️  Measured ~0.5 stop BRIGHT vs a vendor transform (2026-09-09).")
+    print("      Judge framing and focus with it; judge EXPOSURE from the grey card.")
     return 0
 
 
