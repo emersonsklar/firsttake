@@ -24,3 +24,6 @@ ascmhl/
 
 # macOS
 .DS_Store
+
+# Generated viewing LUTs — deterministic from make_log_view_lut.py
+*.cube
