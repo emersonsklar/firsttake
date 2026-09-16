@@ -129,3 +129,79 @@ scripts/shootcheck.py TX1.WAV TX2.WAV --role transmitter --role transmitter
 Then a full verified offload, per `offload-protocol.md`. **Do not skip the offload
 rehearsal** — it is the step nobody practises and the one that runs at the end of a
 long day when everyone is tired.
+
+---
+
+# Existing operator, one new piece of gear
+
+Do **not** rebuild their profile. Run this instead. It is short because most of the
+kit is unchanged — but a new body drags six dependencies behind it, and a camera can
+be entirely functional while the shoot is still impossible.
+
+## 1. Inventory what actually arrived, not what the kit normally ships with
+
+Have them read the items off. Office loans and used buys arrive incomplete, and the
+missing piece is rarely the camera.
+
+## 2. Walk the whole pipeline, not just the camera
+
+This is the step that catches the expensive gaps, because everything upstream of
+them works perfectly.
+
+| Link | The question | The failure it prevents |
+|---|---|---|
+| **Power** | Batteries — how many, what state? Charger? AC adapter? | A body with no battery is inert |
+| **Media** | Cards of the right type *and speed* | Won't record the top format |
+| **A reader for that media** | Does one exist in the kit? | **The camera records fine and the offload chain is blocked at step one** |
+| **Audio path** | What physically connects their existing mics to this body — and which input is *better*, not merely possible? | A camera track nobody can use |
+| **Mounting** | What points does it actually provide — cold shoe, ¼"-20, ⅜"-16? Verified by looking. | A mic with nowhere to go |
+| **Support** | Is the head's payload rating above the *loaded* weight, with monitor, handle, grip and lens? | A slow sag mid-take, or a fall |
+| **Offload tooling** | Does their script already handle this card type and folder structure? | A verified copy that silently isn't |
+
+The reader row is not hypothetical. On this material a new cinema body arrived with
+correct cards and no CFexpress reader anywhere in the kit — the camera was perfect
+and nothing could be got off it.
+
+## 3. Ask what settled decisions this invalidates — the highest-value step
+
+Kit profiles carry a *do-not-re-litigate* list. New gear routinely removes the exact
+blocker that produced one of those entries, and nobody thinks to look, because the
+entry reads as closed.
+
+Re-read the settled list against the new gear and reverse anything now unblocked.
+Mark it **REVERSED**, keep the original text visible, and say which blocker was
+removed — a decision that quietly changes meaning is worse than one that never
+existed.
+
+Worked example from this material: *"Canon C300 deferred — the only available
+lenses are manual-focus primes with no electronic contacts, and he is in frame and
+cannot pull focus."* An autofocus zoom arrived. That single purchase removed the
+whole basis of the deferral, and the body went from excluded to a candidate to
+**replace** the previous A-camera — a far bigger conclusion than "they own another
+camera now."
+
+## 4. Batteries deserve their own paragraph
+
+- **Full to dead in a week is not self-discharge.** Lithium loses roughly 2–3% a
+  *month*. Treat it as a failed cell, a charge that never took, or something left
+  drawing on it — and check whether it was left mounted, since a body in standby
+  drains continuously.
+- **Read the pack's own health data** where the system reports it. Intelligent packs
+  expose remaining capacity and a degradation figure; that number, not a guess,
+  decides whether a pack stays in the bag.
+- **Retire a suspect pack. Do not demote it to "spare."** A spare that cannot be
+  trusted occupies the slot where a real spare should be, and it will be reached for
+  on the one day it matters.
+- **Third-party packs are fine from reputable pro brands, with one proviso:** check
+  they charge on the charger the user already owns, and that they report health data.
+  A pack that needs its own charger costs the saving back and adds an item to carry.
+- **When redistributing older packs to a second kit, buy the replacements first and
+  prove them on a full session.** Otherwise a delayed order leaves the primary kit
+  with nothing known-good.
+
+## 5. Write it back
+
+New body → the kit profile, with the gaps listed as blockers rather than notes.
+Anything reversed → the changelog, dated, with the blocker that was removed. Then
+re-run the first-test-shoot step above for the new body only; its numbers are its
+own and none of the old camera's transfer.
