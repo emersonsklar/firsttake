@@ -17,17 +17,32 @@ and measure it — never to reuse a number from another kit.
 
 ## The one rule that makes this safe to reuse
 
-**Never state a hardware number you have not measured or cited. Label which it is.**
+**Never state a hardware fact you have not measured, cited, or been told. Label which it is.**
 
 | Label | Means |
 |---|---|
-| `CONFIRMED` | Measured on this user's actual body/drive/mic, or stated in that model's own documentation |
+| `CONFIRMED` | Measured on this user's actual body/drive/mic, stated in that model's own documentation, or **reported by the operator from the object in their hands** |
 | `LIKELY` | Consistent across independent third-party sources, not yet measured here |
 | `UNVERIFIED` | Plausible, untested. May not be true. |
 
 A confident unmeasured number is worse than no number, because the whole point of
 this workflow is that the user trusts it on set and cannot re-derive it there.
 When you don't know, say "measure this, here is how" — see `references/method.md`.
+
+**"Fact" is wider than "number."** It covers **which ports exist, what came in the
+box, and what connects to what** — the facts easiest to state confidently from
+memory and get wrong. Two real errors on this material: asserting that a cinema
+camera's handle unit included a microphone holder (it does not), and calling a
+missing adapter cable a blocker when that body has a 3.5 mm input and needs no
+adapter. Both were topology, not arithmetic, so a rule about *numbers* did not
+catch either.
+
+**For that kind of fact, ask before you research.** The operator is holding the
+object. *"Look at the handle — is there a mic holder on it?"* settles in one line
+what twenty minutes of searching may not, and it outranks a datasheet, because the
+datasheet describes a configuration and they have theirs. Asking counts as
+CONFIRMED. Reach for the web when the question is a spec they cannot see — a
+sustained write rate, a payload rating, a base ISO, a Wh figure.
 
 Corollary: **manufacturer datasheets are wrong often enough to check.** One
 published lux figure on record here was for a different reflector; one log-mode base
@@ -56,7 +71,7 @@ ISO was two stops off the assumed value. Measured on the body beats printed.
 | Need | Read |
 |---|---|
 | How to measure instead of assume; the write-back protocol | `references/method.md` |
-| Setting up a new user or a new piece of gear | `references/onboarding.md` |
+| Setting up a new user, **or an existing user adding one new piece of gear** | `references/onboarding.md` |
 | **Photos of a space** — which wall, which chairs, where things go, wardrobe advice | `references/location-scout.md` |
 | Copying cards safely, archiving, chain of custody | `references/offload-protocol.md` |
 | Reading `shootcheck` output without over- or under-reacting | `references/qc-interpretation.md` |
