@@ -40,6 +40,8 @@ established.
 |---|---|
 | `scripts/shootcheck.py` | Technical QC for footage and audio. Measured numbers with PASS/WARN/FAIL against explicit thresholds, and a stated fix for each. Log-aware exposure, focus stability, frame-timing/dropped-frame detection, 8-bit-in-a-10-bit-container detection, per-channel audio. Cross-camera frame-rate mismatch is the headline check. |
 | `scripts/offload.py` | Verified card offload to any number of destinations. Reads the card once, hashes as it reads, then re-reads every destination from disk and compares. Writes MHL 1.1, optional generation-chained ASC MHL, a JSON manifest, and a self-contained HTML report. |
+| `scripts/sync_cameras.py` | Locates recordings in a reference recording's timeline when they share no timecode. Correlates onset envelopes, so it works across different microphones. Probes repeatedly, so the spread between probes **measures drift** — the failure a single clap cannot see. |
+| `scripts/diarize_by_channel.py` | Attributes speech to speakers by comparing per-speaker channels, per word rather than per transcript segment. Verifies the channels are genuinely independent first, and reports each microphone's **isolation**, which decides what audio cleanup is possible at all. |
 | `scripts/build_day_sheets.py` | Renders a day-sheet HTML to PDF and asserts the result — page count, required phrases present, superseded phrases absent. |
 | `scripts/scrub_check.py` | Refuses to publish credentials, client names, or internal hostnames. Run before every push. |
 
@@ -47,9 +49,11 @@ Both measurement tools ship fault-planting harnesses, because a tool that silent
 stops detecting a fault is worse than no tool:
 
 ```bash
-python3 scripts/offload_selftest.py     # plants corruption, deletions, chain breaks
-python3 scripts/make_fixtures.py        # builds clips with exact planted values
-python3 scripts/verify_fixtures.py      # asserts each planted fault is caught
+python3 scripts/offload_selftest.py        # plants corruption, deletions, chain breaks
+python3 scripts/make_fixtures.py           # builds clips with exact planted values
+python3 scripts/verify_fixtures.py         # asserts each planted fault is caught
+python3 scripts/sync_cameras.py --selftest # plants known offsets and a 1000 ppm drift
+python3 scripts/diarize_by_channel.py --selftest  # plants speakers and isolation
 ```
 
 ## Publishing safely
@@ -87,8 +91,12 @@ Most of the value is in the traps, not the happy paths:
 - `references/qc-interpretation.md` — separating the flags your test setup explains
   from the flags that are real
 - `references/location-scout.md` — reading a room from a photo, the seat-height trap
-  that silently invalidates lighting numbers, and why an on-axis soft key is the worst
-  case for anyone wearing glasses
+  that silently invalidates lighting numbers, why an on-axis soft key is the worst
+  case for anyone wearing glasses, and how coverage decides what the edit can do
+- `references/post-production.md` — after the cards are safe: syncing angles with no
+  timecode, speaker attribution as a measurement, loudness per speaker, and the
+  rough-cut traps (honouring an editor's own trims, orphaned reactions, and why a
+  subpixel filter is the difference between a push-in and apparent camera shake)
 
 ## Licence
 

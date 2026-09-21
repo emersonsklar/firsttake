@@ -131,6 +131,27 @@ Check it on the monitor with them seated, not from behind the camera.
 
 ---
 
+## Coverage: who gets a camera decides what the edit can do
+
+Judge this from the photo, before the day, because it cannot be fixed afterwards.
+
+With a tight angle on each person, the edit cuts on dialogue and looks like an
+interview. With a tight angle on the **guest** and only a wide two-shot covering the
+host, every host question plays as the same static wide frame — and the usual remedy is
+a slow synthetic push-in on the wide, which is always worse than having shot a second
+angle.
+
+- **If both people will be quoted, plan a second angle.** A solo operator with two
+  bodies usually spends them on tight-guest plus wide; that is the right call when only
+  the guest is on screen, and the wrong one when the host is a named participant.
+- **A wide that has to double as the host's coverage needs room to be cropped into.**
+  Frame it a little looser than you otherwise would and keep the host off the extreme
+  edge, so a later push-in has somewhere to go.
+- The push itself belongs to post — see `post-production.md` — but the decision belongs
+  here, at the photo stage.
+
+---
+
 ## Feeding measurements into the diagrams
 
 If the user supplies room dimensions, put them in the diagram generator's `SCENE`

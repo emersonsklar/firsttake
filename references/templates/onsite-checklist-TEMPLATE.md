@@ -97,6 +97,29 @@ scripts/shootcheck.py TX1.WAV TX2.WAV --role transmitter --role transmitter
 - [ ] ⛔ Do not leave setup day until `cross-camera frame rate` PASSes and neither
       camera FAILs.
 
+### ⛔ Measure each microphone's isolation while you still can fix it
+
+Ten seconds of work that post cannot undo. With the receiver in **split mode**, have
+each person speak alone for five seconds, then:
+
+```bash
+scripts/diarize_by_channel.py TEST.mov --words words.json --channels 3,4 \
+    --names PERSON_A,PERSON_B
+```
+
+- [ ] ⛔ **Isolation at least ~12 dB on every channel.** Below that a noise gate
+      chatters and the two voices cannot be separated later at all. It is a
+      microphone **placement** problem — move the lav, do not plan to fix it in post.
+      One real shoot went out with 5.5 dB on one channel and 15.3 dB on the other.
+- [ ] ⛔ **True peak below 0 dBTP on every recorded track.** One real camera track
+      measured +0.09 dBTP, i.e. already clipped before any processing.
+- [ ] Channels measure as **independent** (`|r|` near 0). If `|r|` is near 1 the
+      receiver is summing both mics into both channels — split mode is not actually on,
+      and per-speaker audio is gone.
+- [ ] If there is no shared timecode, confirm the angles agree over time, not just at
+      one clap: `scripts/sync_cameras.py CAM_A.mov CAM_B.mp4` and check the **spread**
+      between probes, which is the drift figure.
+
 ---
 
 # SHOOT DAY
