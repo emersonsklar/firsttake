@@ -95,8 +95,16 @@ Most of the value is in the traps, not the happy paths:
   case for anyone wearing glasses, and how coverage decides what the edit can do
 - `references/post-production.md` — after the cards are safe: syncing angles with no
   timecode, speaker attribution as a measurement, loudness per speaker, and the
-  rough-cut traps (honouring an editor's own trims, orphaned reactions, and why a
-  subpixel filter is the difference between a push-in and apparent camera shake)
+  rough-cut traps (honouring an editor's own trims, orphaned reactions, why speech
+  recogniser timings must never be cut on, and why a subpixel filter is the difference
+  between a push-in and apparent camera shake)
+- `references/resolve-api.md` — assembling a project for a post house by script: the
+  playback frame rate that defaults to 24 and makes a 29.97 timeline play at 0.8× with
+  audio that sounds like crackle, the calls that return success and do nothing, and the
+  one that pops a modal dialog and blocks the entire API
+- `references/grade-match.md` — identifying what log format you actually recorded when
+  the container tag is wrong, one static CDL per camera instead of a baked LUT, and why
+  a colour measurement that looks perfect on the first attempt is a bug report
 
 ## Licence
 

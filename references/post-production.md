@@ -95,6 +95,31 @@ entire turn to the wrong speaker. This is not hypothetical: the first version di
 exactly that and scored 79% on a fixture with short turns. Keeping any word with more
 than ~3 dB of margin as measured, and smoothing only the rest, took it to 100%.
 
+### ⚠️ Recogniser word timings are NOT edit points
+
+Word timestamps are accurate enough to read by, search by and attribute by. **They are
+not accurate enough to cut on**, and the error is systematic rather than random: the
+recogniser swallows the breath before a word into the word, so an in-point lands early
+and an out-point lands late by a variable amount.
+
+Six failures measured on one interview. A teaser in-point was **0.81 s late**, its
+out-point **0.37 s early** — both by exactly that mechanism. A sentence whose last word
+the recogniser ended at 76.200 actually releases at **76.35**. One question's opening
+word was placed **0.88 s early**, inside the false start before it, so a cut made on that
+timestamp would have clipped the word it was supposed to begin on.
+
+**Validate every in and out against an energy-onset check** — the first point where
+short-term energy rises ~12 dB above the preceding floor, measured at 10 ms resolution on
+the speaker's *own* channel. That is a different question from "where does the recogniser
+think the word starts," and it is the one an edit depends on.
+
+Where a measured value has to override the recogniser, **write the measurement and its
+evidence down next to the correction.** Three words on this programme needed that: for
+one, the `/b/` closure runs 1585.145–1585.200 and the vowel begins 1585.200, with the
+closing consonant carrying 66% of its energy above 2.5 kHz in its last third. That note
+is why the next person does not re-litigate it — and it is the difference between a
+correction and a fudge factor.
+
 ### Read the isolation figure, because it decides what post can do
 
 The tool reports, per channel, how much louder each person is on their own lavalier
@@ -116,6 +141,13 @@ processing fixes it.** Measure it on a test recording before the shoot, not afte
 
 Target **−16 LUFS integrated, −1.5 dBTP** for online spoken word. Alternatives if
 asked: −14 for a punchy podcast, −19 to −23 for broadcast.
+
+**If previous episodes exist, measure them before assuming the house target.** Three
+reference episodes of one series measured **−21 to −22.4 LUFS** — five dB quieter than
+the online-spoken-word target, and quiet enough that a viewer reaches for the volume.
+That is worth telling the operator, and it is their call: on this one he kept −16
+knowing the back catalogue sits lower. Measure, report, let them decide — do not
+silently match a back catalogue and do not silently ignore it.
 
 Per speaker, then mix, then master:
 
@@ -196,6 +228,54 @@ it's giving the customer the comfort and control…" — a direct response to an
 that no longer existed. Grep the first sentence of every turn that follows a cut for
 back-references ("Yeah", "that", "absolutely", "it") and check each one.
 
+### Frames are the grid; samples are derived from them
+
+At 29.97 one frame is **1601.6 samples** at 48 kHz — not an integer, so the two grids
+never line up. Decide every boundary in **frames**, then derive the sample offset from the
+cumulative frame count. Rounding each piece independently accumulates drift between
+picture and sound across a long programme.
+
+Two counting rules that belong beside it:
+
+- **Count frames; never compute length as `duration × fps`.** That read **2 frames past
+  EOF** on a real camera file (49804 against a true 49802) and the bug had survived into a
+  second build because both used the same arithmetic. Use the measured frame count.
+- **Butt a split file's successor at its predecessor's measured end**, not at a computed
+  timestamp. See the sync section above: a camera that splits mid-take may lose nothing at
+  the boundary, or may lose ~1.4 s — measure the files you have.
+
+### Splices: a butt join clicks, 20 ms of crossfade does not
+
+Joining two pieces of dialogue at a sample boundary steps the waveform, and that step is
+audible as a click even when both sides are quiet. Measured across one programme's
+splices, the worst click was **−26.5 dBFS** — plainly audible. A **20 ms raised-cosine
+crossfade** at every join took the worst to **−44.1 dBFS**, which is below the ≈ **−45
+dBFS** audibility floor for this material.
+
+Two details:
+
+- **At a dialogue↔silence boundary, fade one side only.** Crossfading into real silence
+  pulls the tail of the outgoing speech down with it and sounds like a swallowed word.
+- **Measure the splices, do not assume them.** The figure to report is peak sample
+  difference across each join, per splice, before and after.
+
+### Cutting where the language is awkward
+
+The interesting cuts are not the clean ones. A real example: *"does… how do you think…"* —
+the speaker starts a question, abandons it, and restarts. Moving the cut to start on
+*"how do you think"* is right, and it still sounded wrong, because **the abruptness had
+two causes and fixing either alone left it audible:**
+
+1. the four-syllable false start was being clipped mid-syllable rather than removed
+   cleanly, and
+2. the two sides differed by **+30.9 dB** in level, so the join announced itself even
+   after the words were right.
+
+**Always check both when a cut sounds abrupt: the boundary and the level step.** A
+transition that is correct on the transcript can still be wrong on the waveform. Audit
+these deliberately — go through every splice and ask what a listener hears, not whether
+the text now reads well.
+
 ### Synthetic camera moves, and why you may need them
 
 With one camera on each person you can cut on dialogue. With a tight single on the
@@ -221,6 +301,68 @@ If you do need the push:
   one-second interjection into a flash cut. Around 2.5 s, absorbing anything shorter
   into its neighbour, reads naturally. Placing cuts ~0.15 s *before* the new voice
   starts stops the angle arriving late.
+
+---
+
+## Music and stock assets
+
+- **A watermarked preview is not a delivery asset.** Check for the audible watermark
+  directly — but **do not trust a speech-band ratio to find it.** A 366× speech-band spike
+  in one track was a bass-only passage (spectral flatness 0.0004), not a voice tag.
+- **Speech-to-text on music hallucinates.** One run returned *"Thank you."* over
+  instrumental music, twice. Never let a recogniser decide whether a track has a voice in it.
+- ⚠️ **A content-correlation check cannot tell a licensed master from its own preview** —
+  they are the same song. Verify that swap by **bitrate and bandwidth** (one preview here
+  was 50 kbps and rolled off at 8.7 kHz), not by correlation.
+- **Trim music to the clips you need.** Laying one long, mostly-silent stem works but ships
+  a 128 MB asset where two sample-accurate trims are 2.3 MB. Use `atrim=start_sample=` so
+  the trim is sample-identical rather than re-resampled.
+
+---
+
+## Assembling the project, and grading it
+
+Two separate references, because both are deep enough to mislead from memory:
+
+- **`resolve-api.md`** — handing a post house an assembled Resolve project rather than
+  clips and a document. Read its playback-frame-rate section before anything else; that
+  one shipped broken.
+- **`grade-match.md`** — making two cameras match, identifying what log format you
+  actually recorded, and deriving framing from a reference cut instead of from a
+  compositional rule.
+
+---
+
+## What the reviewer gets
+
+A cut nobody can comment on precisely gets vague comments. Two documents make the
+difference, and both have one trap in common: **they must speak in the delivered
+programme's time, not the source's.**
+
+- **A transcript in programme time.** A timestamp in the A-camera's timebase is useless to
+  someone watching the render — by then the material has been trimmed, reordered and
+  spliced. Map every word through the programme structure and state in the document that
+  the timestamps match the render frame for frame. Carry the recogniser caveat above into
+  the document itself, so nobody downstream cuts from it.
+  - ⚠️ **A source range can be delivered more than once.** A cold-open teaser lifted from
+    inside the interview appears twice in the programme, so a source→programme lookup that
+    returns the first match silently dropped the entire cold open. Return *every* match.
+  - ⚠️ **Only map segments whose dialogue is actually heard.** A title card's picture bed
+    came from a stretch where both people were talking; the delivered card is silent. Taking
+    the span at face value put 32 words into a card that plays as silence.
+- **A review document that validates the cut against the client's own brief.** Extract the
+  messaging goals from the pre-brief and mark each one covered / partial / not covered in
+  the approved edit. This is the highest-value thing in the document: on one programme it
+  surfaced a launch claim the client had asked for that never gets said on camera — a
+  pickup-line decision, made before delivery rather than after.
+  - ⚠️ **An extractor that finds nothing must fail loudly.** Mine handled one client's
+    document layout and returned zero goals for the next, which printed as *"0 of 0
+    extracted key messages are covered"* — indistinguishable from a pass. Any "N of M"
+    where M is 0 is a broken reader, not a clean sheet.
+  - **Chapter anchors go stale when material is trimmed.** Three anchors pointed inside
+    removed material. Snap them forward to the first kept word with a bound (~5 s) and
+    **refuse past the bound** — a bigger jump means the content itself was cut and a human
+    has to re-label it.
 
 ---
 

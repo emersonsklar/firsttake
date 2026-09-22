@@ -75,7 +75,9 @@ ISO was two stops off the assumed value. Measured on the body beats printed.
 | **Photos of a space** — which wall, which chairs, where things go, wardrobe advice | `references/location-scout.md` |
 | Copying cards safely, archiving, chain of custody | `references/offload-protocol.md` |
 | Reading `shootcheck` output without over- or under-reacting | `references/qc-interpretation.md` |
-| **After the offload** — syncing angles, transcripts, speaker attribution, loudness, rough cuts | `references/post-production.md` |
+| **After the offload** — syncing angles, transcripts, speaker attribution, loudness, rough cuts, reviewer documents | `references/post-production.md` |
+| **Assembling a project for a post house** — the Resolve scripting API, Fusion animation, crops that survive proxy/original | `references/resolve-api.md` |
+| **Two cameras that don't match**, identifying a log format, grading to a reference episode, deriving framing | `references/grade-match.md` |
 | Templates to copy per shoot | `references/templates/` |
 | The tools themselves | `scripts/README.md` |
 

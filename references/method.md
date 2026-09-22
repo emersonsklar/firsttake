@@ -159,6 +159,42 @@ because there *is* a measurement and it *does* pass:
 
 ---
 
+## A pass that doing nothing would also produce is not a pass
+
+The sharpest version of the trap above. Before believing a green result, ask: **if the
+step I am verifying had not run at all, would this check still pass?** If yes, the check
+is measuring the wrong thing. Five failures on one project, all the same shape:
+
+- **`0 of 0 covered.`** A document reader handled one client's layout and silently
+  extracted nothing from the next. The report read as a clean sheet. Any `N of M` where M
+  is 0 must fail loudly.
+- **Every probe scored 0.000.** Read as "all 27 frames are wrong." The real cause was an
+  ffmpeg invocation missing its input argument, producing no output at all. Assert that a
+  measurement produced *output* before interpreting its value.
+- **A build reported no problems with 28 crops silently unapplied.** A helper that split
+  clips had dropped one field, so the framing data never reached the timeline. Nothing
+  errored, because nothing looked.
+- **A transcript missing its entire cold open.** A source→programme lookup returned only
+  the first match, and that stretch of source is delivered twice. Output existed, looked
+  plausible, and was short by a whole segment.
+- **"The two cameras match to 0.0001."** I had compared a left-half mask against a
+  whole-frame one. The real figure was 100× worse.
+
+Two habits fall out of this:
+
+1. **Negative-test the check itself.** Break the thing deliberately and confirm the check
+   goes red. A check that has never failed has never been tested.
+2. **A number that good on a first attempt is a bug report.** 0.0001 agreement, 1.0000
+   correlation, 100% coverage, zero drift — each of those has been a broken measurement
+   here at least once. Treat a suspiciously perfect result as an alarm, then go and earn it.
+
+Corollary about the instrument: **do not measure through a transformation you added.** I
+reported a master clipping at +0.93 dBFS with 3636 full-scale samples. The overs were
+created by my own stereo→mono downmix adding 3 dB. Per channel the file measured −2.09
+dBFS with zero overs. Measure the thing that ships, in the form it ships.
+
+---
+
 ## Don't build a classifier on a weak signal
 
 Tempting pattern: take a noisy metric, add logic to decide what the user *meant*,
