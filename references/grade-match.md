@@ -107,8 +107,20 @@ Two lessons worth more than the numbers:
   has a plant across 25% of the frame. Subject placement outranks tidying the background,
   and I had it backwards.
 
-⚠️ **State a house rule only from more than one episode.** From a single reference I
-asserted four rules — "no reaction shots," "own-single 66% ± 2," "cut about 5 s in" —
-and three more episodes contradicted all of them: 13 reaction shots in one, own-single
-29.9–86.5%, median delay 13.2 s against the 2.8 s I had claimed. One episode is an
-example. Three is a grammar.
+⚠️ **State a house rule only from more than one episode.** I wrote ten rules from a
+single reference episode and then measured three. **Five failed outright:**
+
+| Claimed from one episode | Measured across three |
+|---|---|
+| "on their own single 66% ± 2 of their speaking time" — called *remarkably stable* | **29.9 / 53.0 / 55.2 / 86.5%** across four speakers. A 2.9× spread. |
+| "there are no reaction shots; the rule is absolute" | **13** in one episode (10.6% of the host's speaking time), **11** in another, one running 11.35 s |
+| "cut to the speaker's single about 5.0 s into an answer — the single most important number" | medians **2.82 / 5.01 / 13.16 s**. A 4.7× spread, and crew-specific: derive it from how tight your wide is. |
+| "the lower third is one left-to-right list across the frame" | three episodes, **three different designs** |
+| "1920×1080 at 23.976 is the delivery format" | one episode is **25 fps** |
+
+What *did* hold across all three is worth more than any of the above, because it survived
+contact with more data: the wide shot is the hub (87–90% of cuts touch it), cuts lead the
+incoming voice by 0.14–0.23 s and land within 0.08–0.12 s of a gap between words, and
+there are hard cuts only — zero dissolves, zero B-roll, zero cutaways in 62 minutes.
+
+One episode is an example. Three is a grammar.
