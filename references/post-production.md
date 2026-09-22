@@ -350,6 +350,47 @@ programme's time, not the source's.**
   - ⚠️ **Only map segments whose dialogue is actually heard.** A title card's picture bed
     came from a stretch where both people were talking; the delivered card is silent. Taking
     the span at face value put 32 words into a card that plays as silence.
+### Write TWO review documents, not one
+
+The document that lets you audit the edit and the document you send the client are not
+the same document, and converting the first into the second by hand goes wrong the same
+way every time. Generate both.
+
+**The internal one shows its work:** every proposed cut as strikethrough, re-recorded
+answers with their evidence, source timecodes, which file each decision came from, and
+the messaging validation. It exists so a human can find the mistakes before anyone
+outside sees them.
+
+**The client one carries only what they can act on:**
+
+- **No process language.** No "proposed", no "generated", no repo paths. They are being
+  asked to choose, not to audit how the options were produced — and telling them a
+  paragraph was generated invites them to discount it rather than read it.
+- **No strikethrough and no re-record markers.** They are watching the assembled cut, so
+  material you dropped is invisible to them and the fact that two answers were reshot is
+  not their problem. A transcript of what they will actually hear beats a transcript of
+  what was shot with the removals marked.
+- **Every time in programme time.** Covered above, and it is the single most common way
+  the client document goes stale.
+- **Nothing typed that the cut determines.** One hand-made draft claimed a "0:30 head", a
+  "10 s title card" and a 14:19 runtime against an actual 0:24, 6.0 s and 14:50 — three
+  numbers wrong because they were typed once and then the cut moved.
+- ⚠️ **Generate option letters and clip numbers from list position.** Deleting options by
+  hand left a document whose title list began at "Option B" and whose clip list began at
+  "Candidate Short #2". Nothing else in the document signals sloppiness that fast.
+
+**The split that makes the client document safe to re-run:** keep the curated editorial —
+titles, description, social copy, which clips someone picked — in a separate data file
+that passes through verbatim, and let the generator compute only the timings around it.
+Then every re-edit is one command and nobody's wording is lost. Without that split you
+either regenerate and destroy a colleague's copy, or hand-edit and re-introduce every
+problem above.
+
+When a colleague reviews that document, **read their tracked changes *and* their comment
+anchors before regenerating.** On one episode the social reviewer's choices were recorded
+only as two "This one" comments attached to table rows; a regeneration that looked only
+at tracked changes would have silently dropped both picks.
+
 - **A review document that validates the cut against the client's own brief.** Extract the
   messaging goals from the pre-brief and mark each one covered / partial / not covered in
   the approved edit. This is the highest-value thing in the document: on one programme it
