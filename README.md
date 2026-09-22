@@ -1,10 +1,27 @@
 # film-shoot
 
-A Claude Code skill for running a video shoot you are personally responsible for —
-camera and audio settings, lighting placement, location scouting from photos, on-set
-checklists, footage QC, and verified card offload with chain of custody.
+A Claude Code skill for running a video shoot you are personally responsible for, and
+finishing it — camera and audio settings, lighting placement, location scouting from
+photos, on-set checklists, footage QC, verified card offload with chain of custody, and
+then the post stage: syncing angles that share no timecode, speaker attribution,
+loudness, grading two cameras to match, and assembling a project a post house can
+finish.
 
-It ships two measurement tools that are useful on their own, with or without Claude.
+It ships four measurement tools that are useful on their own, with or without Claude.
+
+## What it covers
+
+| Stage | What the skill does | Read |
+|---|---|---|
+| **Before** | Measure your own kit and write a profile. Read a room from photos. Lighting and camera numbers you can follow on set without re-deriving them. | `onboarding.md`, `location-scout.md` |
+| **On the day** | Checklists built around one constraint: nothing may require attention after "rolling." | `templates/` |
+| **Straight after** | QC the files rather than the monitor. Offload the cards so a copy is *verified*, not merely made. | `qc-interpretation.md`, `offload-protocol.md` |
+| **Post** | Sync angles with no shared timecode and measure **drift**, attribute speech per word, set loudness statically per speaker, cut, and build the reviewer's transcript and review document. | `post-production.md` |
+| **Finish and hand off** | Match two cameras with one CDL each, grade to a reference, and assemble the project by script so the post house only finishes it. | `grade-match.md`, `resolve-api.md` |
+
+The through-line is the same at every stage: **measure it, because the failures are
+quiet.** A sync 40 ms out looks fine on a laptop. A timeline at the wrong playback rate
+shows a contented green number while dropping a fifth of the audio.
 
 ## Install
 
@@ -45,8 +62,9 @@ established.
 | `scripts/build_day_sheets.py` | Renders a day-sheet HTML to PDF and asserts the result — page count, required phrases present, superseded phrases absent. |
 | `scripts/scrub_check.py` | Refuses to publish credentials, client names, or internal hostnames. Run before every push. |
 
-Both measurement tools ship fault-planting harnesses, because a tool that silently
-stops detecting a fault is worse than no tool:
+Every measurement tool ships a fault-planting harness, because a tool that silently
+stops detecting a fault is worse than no tool. They plant ground truth rather than
+checking self-consistency — 63 + 52 + 7 + 6 assertions:
 
 ```bash
 python3 scripts/offload_selftest.py        # plants corruption, deletions, chain breaks

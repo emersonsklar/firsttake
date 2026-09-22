@@ -25,9 +25,12 @@ python3 sync_cameras.py --selftest
 python3 diarize_by_channel.py --selftest
 ```
 
-Both new harnesses plant ground truth rather than checking self-consistency:
+The post-stage harnesses plant ground truth rather than checking self-consistency:
 `sync_cameras` plants known offsets and a 1000 ppm clock difference and asserts the
-offset and the drift both come back; `diarize_by_channel` plants a two-lavalier
+offset and the drift both come back, plus a **partly-overlapping** pair — the case that
+once produced a confident wrong offset and −354294 ppm of "drift" — and asserts both that
+the offset is right and that the non-overlapping probes were rejected;
+`diarize_by_channel` plants a two-lavalier
 conversation with known speakers and known isolation and asserts the attribution,
 the isolation figure, and its refusal to run on one mix copied twice.
 
