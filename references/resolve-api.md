@@ -197,6 +197,41 @@ for." If the clip is cropped, apply the same crop to the source before comparing
 
 ---
 
+## Rendering out of the project
+
+⚠️ **`MarkIn` and `MarkOut` PERSIST on the project.** Anything that rendered a short probe
+window earlier — a verifier, an experiment — leaves them set, and the next render silently
+delivers that window instead of the programme. Measured: a review render came back with the
+queue reporting **Complete**, a valid MP4, the right resolution and the right frame rate,
+and **8 frames out of 26688**. Pass `SelectAllFrames` (and set the marks explicitly as belt
+and braces) on every full render.
+
+That is the general shape of this whole stage: **"Complete" is not "correct."** After any
+render, measure the file rather than trusting the queue —
+
+- frame count against the programme's own total, which is the check that caught the above;
+- frame rate, because 29.97 delivered as 30.000 drifts a frame every 33 s and reads as a
+  lip-sync fault ten minutes in;
+- that it is **one movie and not an image sequence** — the delivery format on this project
+  has been PNG at least once, which makes every probe read as a failed render;
+- integrated loudness, on the file that will actually be watched.
+
+## Cache rendered assets on their CONTENT, not their filename
+
+Graphics get rendered to intermediate clips and then cached, and the cache key is where
+this goes wrong. Two versions of the same bug shipped on one project:
+
+1. **Keyed on frame count** — switching to different artwork of the same length reused the
+   old render, so a superseded lower third survived a source change.
+2. **Keyed on frame count + filename** — re-rendering *the same filename* with different
+   artwork also reused it. That is exactly what happens when a graphic is rebuilt in a
+   corrected typeface: same name, same length, different pixels, stale clip.
+
+Key on a hash of the source file. Then have the **verifier** recompute that hash from the
+artwork on disk and assert the timeline references it — without that, every other check
+passes just as happily with the superseded graphic, because nothing was looking at which
+artwork it was. Negative-test it against the previous project version, where it must fail.
+
 ## If you use FCPXML instead
 
 A round trip through FCPXML works and needs no Studio licence, with two traps:

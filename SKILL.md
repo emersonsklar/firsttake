@@ -77,7 +77,7 @@ ISO was two stops off the assumed value. Measured on the body beats printed.
 | Reading `shootcheck` output without over- or under-reacting | `references/qc-interpretation.md` |
 | **After the offload** — syncing angles, transcripts, speaker attribution, loudness, rough cuts, reviewer documents | `references/post-production.md` |
 | **Assembling a project for a post house** — the Resolve scripting API, Fusion animation, crops that survive proxy/original | `references/resolve-api.md` |
-| **Two cameras that don't match**, identifying a log format, grading to a reference episode, deriving framing | `references/grade-match.md` |
+| **Two cameras that don't match**, identifying a log format, grading to a reference episode, deriving framing, reproducing a supplied graphics template | `references/grade-match.md` |
 | Templates to copy per shoot | `references/templates/` |
 | The tools themselves | `scripts/README.md` |
 

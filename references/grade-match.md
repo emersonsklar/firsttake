@@ -88,6 +88,42 @@ point, not an authority.
 
 ---
 
+## Reproducing a graphics template someone else designed
+
+Same discipline again: title cards and lower thirds have to match what the series has been
+shipping, and the only reliable source is a delivered file. Build an ink mask by
+colour-keying (near-white type, and the brand colour separately at alpha > 200), take
+row/column run-length bands **per panel**, and you recover every element's bounding box to
+the pixel. On one series two independently delivered cards agreed to **1–2 px on every
+shared number**, which is what makes them a template rather than one episode's accident.
+
+**Width solves the size; height picks the typeface.** For each reference string, find the
+size whose rendered ink width matches the measured width — then use ink **height** at that
+size to choose between faces, because width alone cannot discriminate (any face scales to
+hit a width). On a real lower third, matching widths gave plausible answers for two
+different families; ink height was exact for one on all three role strings and 1–3 px short
+for the other every time. That settled it.
+
+Three traps:
+
+- ⚠️ **Never substitute a typeface silently.** A stand-in was 7–11% wider than the real
+  face, which changes every line break on the card. A squeeze factor fitted to the
+  reference (0.93, later 0.896 on better data) gets the metrics close and is still an
+  approximation — when the real font arrives, validate it and delete the squeeze. Here the
+  real face reproduced the reference to **−0.2%** with no squeeze at all, which also
+  retroactively confirmed the whole measurement chain.
+- ⚠️ **A supplied spec can be internally inconsistent with your own assets, and measuring
+  the reference is how you tell which part to trust.** One spec listed "Partner logo:
+  height 628px, width auto". The partner's wordmark is 8.31:1, so at 628 tall it would be
+  **5217 px wide — 2.7× the frame**, and nothing on any delivered card is 628 px tall. Read
+  as the placed artwork's own intrinsic height it is consistent with everything. State the
+  arithmetic when you flag this; it converts an argument into a decision.
+- **Solve the reference's own line breaks before believing a text measure.** A spec gave a
+  940 px headline box; at the spec's size the reference's first line fits in 745 px and the
+  next word would take it to 1029, so a plain greedy wrap breaks exactly where the
+  delivered card breaks. That agreement is what proves the measure is real rather than a
+  designer's hand-break.
+
 ## Framing: measure the reference, do not apply the rule
 
 A related job, same discipline. Asked to crop a 4K wide shot into a single, I applied the
