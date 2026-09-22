@@ -75,6 +75,7 @@ ISO was two stops off the assumed value. Measured on the body beats printed.
 | **Photos of a space** — which wall, which chairs, where things go, wardrobe advice | `references/location-scout.md` |
 | Copying cards safely, archiving, chain of custody | `references/offload-protocol.md` |
 | Reading `shootcheck` output without over- or under-reacting | `references/qc-interpretation.md` |
+| **After the offload** — syncing angles, transcripts, speaker attribution, loudness, rough cuts | `references/post-production.md` |
 | Templates to copy per shoot | `references/templates/` |
 | The tools themselves | `scripts/README.md` |
 
@@ -110,6 +111,14 @@ quiet and judging them against a camera-track target cries wolf on the one file
 that gets delivered.
 
 `scripts/offload.py` exists because a copy that "looked fine" is not a copy.
+
+`scripts/sync_cameras.py` exists because a clap tells you the offset at one instant
+and nothing about whether the two clocks agree for the rest of the take. It probes
+repeatedly, so the spread between probes measures drift.
+
+`scripts/diarize_by_channel.py` exists because when a receiver is in split mode, who
+spoke when is a measurement rather than an inference — and because the same data
+tells you each microphone's isolation, which decides what cleanup is possible at all.
 
 When you compute something, compute it. Do not put a hardcoded conclusion next to
 a calculation — that has caused a real error on this material before.

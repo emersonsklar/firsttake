@@ -133,6 +133,32 @@ match it would have masked real faults.
 
 ---
 
+## Verify the property you are actually claiming
+
+A check can be real, pass honestly, and still be worthless, because it measures
+something adjacent to the claim.
+
+A slow push-in on a locked-off wide shot shipped visibly broken. It was verified by
+sampling four still frames and confirming the image got progressively tighter. It did.
+Tightening was never the question — **smoothness** was, and a single frame cannot
+show motion. The filter was rounding its crop rectangle to whole pixels, holding for
+five frames and then snapping one, about five times a second. On screen it read as
+handheld shake. One frame-to-frame difference measurement would have caught it
+instantly; four still frames could not have, no matter how carefully they were read.
+
+This is a different failure from not measuring at all, and it is harder to notice
+because there *is* a measurement and it *does* pass:
+
+- **Name the failure you are afraid of, then ask whether the check could see it.**
+  "Is it smooth" is a question about change between frames, so the evidence has to
+  span frames.
+- **Static evidence cannot settle a dynamic claim**, and a summary statistic cannot
+  settle a claim about a specific moment.
+- Elsewhere in this project the same shape appeared as a hardcoded conclusion printed
+  next to a live calculation. The check and the claim had drifted apart.
+
+---
+
 ## Don't build a classifier on a weak signal
 
 Tempting pattern: take a noisy metric, add logic to decide what the user *meant*,
