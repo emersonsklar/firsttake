@@ -43,6 +43,8 @@ FPS = 100          # envelope frames per second; 10 ms resolution
 SR = 16000         # plenty for a speech envelope
 PROBE = 60.0       # seconds per probe window
 MIN_SCORE = 8.0    # peak-to-median ratio below which a probe has not locked
+AGREE_S = 1.0      # probes within this many seconds of each other are one cluster
+MAX_PLAUSIBLE_PPM = 5000.0  # beyond this a "drift" figure is a mismatch, not a clock
 
 
 def _run(cmd):
@@ -117,8 +119,24 @@ def measure(ref_env, other_env, other_dur):
         at, score = locate(ref_env, probe)
         if at is not None:
             rows.append({"probe_at": s, "found_at": at, "offset": at - s, "score": score})
-    locked = [r for r in rows if r["score"] >= MIN_SCORE]
-    out = {"probes": rows, "locked": len(locked), "total": len(rows)}
+    scored = [r for r in rows if r["score"] >= MIN_SCORE]
+
+    # Reject probes that fall outside the overlap. If one recording started earlier
+    # than the other, its first probes have no counterpart at all and lock on noise;
+    # averaging those in produces a confident, wildly wrong offset and an absurd
+    # drift figure. Keep the largest cluster of probes that agree with each other
+    # instead of trusting every probe that merely scored well.
+    locked = []
+    if scored:
+        offs = np.array([r["offset"] for r in scored])
+        best, bestn = None, 0
+        for c in offs:
+            n = int((np.abs(offs - c) <= AGREE_S).sum())
+            if n > bestn:
+                best, bestn = float(c), n
+        locked = [r for r in scored if abs(r["offset"] - best) <= AGREE_S]
+    out = {"probes": rows, "locked": len(locked), "total": len(rows),
+           "scored": len(scored), "rejected": len(scored) - len(locked)}
     if locked:
         offs = np.array([r["offset"] for r in locked])
         out["offset"] = float(offs.mean())
@@ -129,7 +147,13 @@ def measure(ref_env, other_env, other_dur):
         if span >= 120 and len(locked) >= 2:
             lo = min(locked, key=lambda r: r["probe_at"])
             hi = max(locked, key=lambda r: r["probe_at"])
-            out["drift_ppm"] = float((hi["offset"] - lo["offset"]) / span * 1e6)
+            ppm = float((hi["offset"] - lo["offset"]) / span * 1e6)
+            # Two digital recorders differ by tens of ppm, not thousands. A huge
+            # figure means the probes disagree, not that a clock is 30% fast.
+            if abs(ppm) <= MAX_PLAUSIBLE_PPM:
+                out["drift_ppm"] = ppm
+            else:
+                out["drift_implausible_ppm"] = ppm
     return out
 
 
@@ -161,8 +185,15 @@ def report(ref, others, as_json=False, quiet=False):
                       % (r["locked"], r["total"]))
                 continue
             print("  offset  %+.3f s   -> reference_time = this_time %+.3f" % (r["offset"], r["offset"]))
-            print("  probes  %d/%d locked, spread %.3f s over a %.0f s span"
-                  % (r["locked"], r["total"], r["spread"], r.get("span", 0)))
+            print("  probes  %d/%d agree, spread %.3f s over a %.0f s span%s"
+                  % (r["locked"], r["total"], r["spread"], r.get("span", 0),
+                     ("   (%d probe(s) rejected as outliers)" % r["rejected"]) if r.get("rejected") else ""))
+            if r.get("rejected"):
+                print("          Outliers usually mean the recordings only partly overlap -- one")
+                print("          started before the other, so its early probes have no counterpart.")
+            if "drift_implausible_ppm" in r:
+                print("  drift   NOT REPORTED: probes implied %.0f ppm, which is not a clock difference."
+                      % r["drift_implausible_ppm"])
             if "drift_ppm" in r:
                 ppm = r["drift_ppm"]
                 # 29.97 against 30.000 is 1001/1000, i.e. about 1000 ppm
@@ -267,6 +298,39 @@ def selftest():
               abs(r.get("offset", 9)) <= 0.02 and abs(r.get("drift_ppm", 0)) < 200,
               "offset %.3f, drift %s" % (r.get("offset", -9),
                                          r.get("drift_ppm", "n/a")))
+
+        # 5. PARTIAL OVERLAP -- the case that broke this tool on real files.
+        #
+        # A lavalier that ran long overlaps only part of the camera's take. The
+        # probes inside the overlap lock correctly; the ones past its end have no
+        # counterpart and lock on noise. Averaging all of them gave a confident
+        # offset that was wrong and a drift figure of -354294 ppm, which is
+        # physically impossible and was reported as fact. The fix is to keep the
+        # largest cluster of probes that AGREE, so this test asserts two things:
+        # the offset is still right, and probes were actually rejected.
+        long_ref = os.path.join(tmp, "partial_ref.wav")
+        _synth(long_ref, 300, seed=7)
+        tail = os.path.join(tmp, "partial_tail.wav")
+        _synth(tail, 600, seed=31)         # unrelated material, no counterpart
+        head = os.path.join(tmp, "partial_head.wav")
+        _run(["ffmpeg", "-y", "-v", "error", "-ss", "40", "-i", long_ref,
+              "-c:a", "pcm_s16le", head])  # 260 s that DOES match, at offset 40
+        lst = os.path.join(tmp, "partial.txt")
+        with open(lst, "w") as fh:
+            fh.write("file '%s'\nfile '%s'\n" % (head, tail))
+        partial = os.path.join(tmp, "partial.wav")
+        _run(["ffmpeg", "-y", "-v", "error", "-f", "concat", "-safe", "0",
+              "-i", lst, "-c:a", "pcm_s16le", partial])
+        r = report(long_ref, [partial], as_json=True, quiet=True)[partial]
+        got, ppm = r.get("offset"), r.get("drift_ppm")
+        ok = (got is not None and abs(got - 40.0) <= 0.05
+              and r.get("rejected", 0) > 0
+              and (ppm is None or abs(ppm) <= MAX_PLAUSIBLE_PPM))
+        check("partial overlap: locks on the overlap and rejects the rest", ok,
+              "offset %s, %s of %s scored probes rejected, drift %s ppm"
+              % ("%.3f" % got if got is not None else "no lock",
+                 r.get("rejected"), r.get("scored"),
+                 ("%.0f" % ppm) if ppm is not None else "n/a"))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

@@ -120,30 +120,63 @@ asked: −14 for a punchy podcast, −19 to −23 for broadcast.
 Per speaker, then mix, then master:
 
 ```
-highpass=f=80, afftdn=nr=12:nf=-25:tn=1, deesser=i=0.1,
-dynaudnorm=f=250:g=15:p=0.9:m=8:r=0.5:s=10
-→ mix → loudnorm (two-pass, with measured values) → alimiter=limit=-1.0dB
+highpass=f=80, afftdn=nr=12:nf=-25:tn=1, deesser=i=0.1
+→ per-turn static trim → one static gain per speaker
+→ mix → alimiter=limit=-1.5dB:level=disabled:latency=true
 ```
+
+⚠️ **There is no `loudnorm` and no `dynaudnorm` in that chain, and that is the point.**
+An earlier version of this file recommended both. On quiet lavalier material they
+produce audible damage, and the operator hears it as clipping at peaks that never
+approach full scale. Both findings are measured, on a real interview:
+
+- **`loudnorm` silently falls back to *dynamic* mode** when it cannot reach the target
+  linearly inside the true-peak ceiling — which is exactly the case on quiet source
+  (RMS ≈ −40 dBFS, crest 21.6 dB). It then rides the programme's gain: **18.7 dB of
+  movement inside a single six-second window.** Long-term crest collapsed 20.5 → 12.7 dB
+  while per-window crest was unchanged, which is how you tell gain riding from limiting.
+- **`dynaudnorm` does the same thing one stage earlier** — 18 dB over a minute and 4–6 dB
+  *inside one spoken phrase*. It is not the gentle fixed boost it looks like.
+
+So set the level **statically** and let a true-peak limiter catch only overs. Reach the
+target by iterating the static gain against a *measured render*, not by asking a filter
+to hit it for you.
 
 - **Per speaker only if you actually have per-speaker channels.** Split mode gives you
   that. If the recording is one summed mix, you must split by **time** instead, using
   the turn boundaries — and then measure each speaker's segments separately. Do not
   trust `aselect` inside a single `loudnorm` pass; it silently measures the whole
   stream and returns identical numbers for every speaker.
-- **Always measure, then apply.** Single-pass `loudnorm` lands roughly a dB off target.
-  Run it once with `print_format=json`, then pass the measured values back in.
+- ⚠️ **`alimiter`'s `level` option defaults to `true`.** Written as the bare
+  `alimiter=limit=-1.0dB` this file used to show, the final limiter does not protect the
+  master — it *auto-levels it back up* until the peak reaches the limit, throwing the
+  loudness target away. Measured: −15.4 LUFS / −0.4 dBTP instead of −16 / −1.5. Always
+  `level=disabled`, and `latency=true` so the look-ahead does not time-shift the master
+  against the picture.
+- **A move-gain-per-turn trim is safe; a move-gain-per-phrase one is not.** Level each
+  speaking turn with a constant, and change it only inside measured silence between
+  turns. Nothing then moves while anyone is speaking, which is the property the dynamic
+  filters above cannot give you.
 - **Check the splices, not just the average.** Measure integrated loudness a few
   seconds either side of every cut. Under ~1 dB is ideal; 2–3 dB is usually genuine
   speaker-to-speaker difference rather than an error, but you want to have looked.
+- **Do not chase a crest figure below ~14.5 dB at these targets.** At −16 LUFS and
+  −1.5 dBTP that is the arithmetic ceiling: once a window touches the ceiling its crest
+  is `ceiling − RMS`, and RMS is pinned by the loudness target. The only lever is the
+  loudness target itself.
 
 Two things worth catching here because they are recording faults, not mix faults:
 
 - **True peak above 0 dBTP on a camera track.** One real channel measured **+0.09
-  dBTP** — already over full scale before any processing. A limiter saves the delivery
-  but the fix is at the recorder.
+  dBTP** over the whole file — already over full scale before any processing. Check
+  *where* the over is before blaming the recorder: on that shoot the single over sat
+  outside every range that reached the edit, and inside the edit the camera path was
+  flat clean gain with the body's limiter never engaging.
 - **A very high loudness range** (LRA 18–22 on raw lavalier channels) means big level
-  swings. `dynaudnorm` brought those to about 4–5, which is what makes a long interview
-  comfortable to listen to.
+  swings, and a long interview is uncomfortable at that spread. **Bring it down by
+  levelling turns and mixing, not with a dynamics filter** — see the warning above. That
+  route reached **LRA 4.1** on a 15-minute programme with no compression inside any
+  phrase at all.
 
 ---
 
