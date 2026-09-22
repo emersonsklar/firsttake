@@ -114,8 +114,8 @@ downstream of a source document is a stale copy waiting to happen.
 ## Never fix a check without adding a test
 
 A measuring tool that silently stops detecting a fault is worse than no tool,
-because it is trusted. Both tools here ship fault-planting harnesses; run them after
-any edit.
+because it is trusted. Every measurement tool here ships a fault-planting harness; run
+them after any edit.
 
 Two lessons from building those fixtures:
 

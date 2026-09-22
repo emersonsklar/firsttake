@@ -1,6 +1,6 @@
 ---
 name: film-shoot
-description: Use when planning, prepping, running, or debriefing a video shoot where the user is responsible for the recording — camera and audio settings, lighting placement, on-set checklists, footage QC, verified card offload and archiving, or a delivery spec for a post house. Also use when the user says they have a shoot coming up, asks for a checklist or set diagram, wants test footage analysed, or wants to offload and verify cards. Works with any camera, recorder, mic and drive; it measures the user's own gear rather than assuming a kit.
+description: Use when planning, prepping, running, or debriefing a video shoot where the user is responsible for the recording — camera and audio settings, lighting placement, on-set checklists, footage QC, verified card offload and archiving, or a delivery spec for a post house. Also use for the post work on that footage — syncing angles that share no timecode, transcripts and speaker attribution, loudness and audio mastering, cutting, matching two cameras' colour or identifying a log format, and assembling a DaVinci Resolve project for a post house. Also use when the user says they have a shoot coming up, asks for a checklist or set diagram, wants test footage analysed, or wants to offload and verify cards. Works with any camera, recorder, mic and drive; it measures the user's own gear rather than assuming a kit.
 ---
 
 # Film shoot
