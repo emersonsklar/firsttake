@@ -278,6 +278,32 @@ the distinction visible to whoever reads the build a month later. A check that c
 
 ---
 
+## A guard's reference window must be where the signal actually is
+
+A check written to catch a music bed masking a voiceover reported the bed as **"within −203.6 dB"**
+of her voice. That absurdity was luck: the same two faults could as easily have produced a plausible
+number and a green tick.
+
+1. **It referenced the wrong span.** The window it was handed was the deliberate *silence after* the
+   VO, so "her speech level" measured −240 dBFS, the gate accepted every block, and the comparison
+   was against nothing at all.
+2. **Its gate was a noise floor**, which accepts the **decay of a final syllable**. A decaying word
+   is ~20 dB below speech proper, so the tail set the reference and the check reported masking at the
+   one place a fade is always closest. Gate on being within ~15 dB of the speaker's **own
+   90th-percentile** level instead.
+
+And the premise was backwards before either of those: it failed any fade that merely *overlapped*
+the VO, reasoning that it would bury her. Measured, separation **improved** monotonically as the fade
+descended (+10.7 → +30.3 dB) — a bed dying away under the end of a line *exposes* a voice. **Assert
+the thing you fear (proximity while she is speaking), not a proxy for it (overlap).**
+
+⚠️ **And a crashed build is not distinguishable from a build that reported a problem** if you grep
+for both patterns and count — both give 1. That cost a round of reading a *stale* report and
+believing the previous build's numbers. Check the exit status, or assert the output file's mtime
+moved.
+
+---
+
 ## Check the length of the file you are actually reading
 
 A shot was repointed at a pre-rendered retime of its source clip — 135 frames standing in for 1107.

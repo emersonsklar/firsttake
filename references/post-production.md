@@ -380,6 +380,84 @@ If you do need the push:
 
 ---
 
+## Fade SHAPE is a first-class parameter, not a default to inherit
+
+An operator called a music fade "very abrupt", so it was lengthened. Three times. It stayed abrupt,
+because length was the wrong axis.
+
+An **equal-power (cosine)** fade is only **−2.9 dB at its halfway point** and −12.2 dB at 85%, then
+plunges in its last 15%. The music sits at essentially full level for most of the fade and then
+steps out — and that step is what the ear reports. Lengthening it just holds full level for longer.
+
+Switching to **linear-in-dB** over the same span over-corrected, and named the axis exactly:
+**−29.8 dB at halfway**, and the next note was "disappears too early". **Both complaints are the
+same quantity read from opposite sides.** What worked was a knee — dB-linear to a shallow floor
+(−24 dB) over the first 80%, then an equal-power taper to true zero: **−15.0 dB at halfway.**
+
+| through the fade | equal-power | dB-linear to −60 | knee (−24 dB at 80%) |
+|---|---|---|---|
+| 25% | −0.7 | −14.9 | −7.5 |
+| **50%** | **−2.9** | **−29.8** | **−15.0** |
+| 70% | −6.6 | −41.6 | −21.0 |
+| 85% | −12.1 | −50.8 | −24.7 |
+
+**So specify a fade by the level at 25/50/70/85%, not by a duration and a curve name.** "1.5 s
+equal-power" does not describe what a listener hears; "−15 dB by halfway" does.
+
+⚠️ **And know why equal-power is the default.** It is correct for a **crossfade**, where the two
+halves must sum to constant power. A fade to *nothing* has no such constraint, so carrying the
+default across is the actual mistake. Keep equal-power for crossfades, lane edges and returns.
+
+⚠️ **An envelope cannot fade material that was never laid down.** A bed assembled only up to a
+segment boundary produced a stem that went silent 63 frames before the configured end, while the
+config and the report both claimed otherwise. Three things disagreed and only measuring the
+rendered stem caught it — derive the material's extent and the envelope from one value.
+
+### Where a fade may end is a measurement about the voice, not the edit
+
+"End it a couple of beats before she starts talking" needs three numbers before it is actionable:
+her **voiced** onset, the beat length, and whether there is room. Here there wasn't — her line began
+45 frames after the segment boundary and two beats was 45.6 frames — so the clearance had to come
+out of the *shape* rather than the position.
+
+⚠️ **Decide which sound "starts talking" means, by measurement.** The audible material 16 frames
+before her first word was a **breath**: broadband, with LF−HF only 6–9 dB and the low band at the
+noise floor, against 20–23 dB and 25 dB more low end once voiced. Reference the voice and leave the
+breath — cutting to the breath would have clipped her.
+
+---
+
+## Accepting a supplied graphic: measure it, and the last frame proves nothing
+
+Three vertical end cards were delivered for one 5-second slot and the first two were unusable:
+
+- one was **608×1080** despite a filename reading `1080x1920` — a 1.78× upscale of pure text and a
+  logo;
+- one had the right raster but its **animation collapsed into 0.70 s** and then froze for 6.6 s **on
+  an unfinished graphic** — a bare plus sign where the brand lockup belongs.
+
+That second one is the instructive failure: **a supplied file's final frame is not evidence its
+animation completed, only evidence of where it stopped.** Checking the end and seeing "a card" is
+not checking that the card is finished.
+
+Three cheap checks, in order, before accepting any supplied motion graphic:
+
+1. **Raster against the filename.** They disagreed here, and the filename was the optimistic one.
+2. **Constant frame rate?** All three deliveries were **variable** — 30.31, 62.49, and finally a
+   clean 30.000 CFR. Note `r_frame_rate` may report a container timebase (`600/1`); use
+   `avg_frame_rate` and the timestamp intervals.
+3. **Profile frame-to-frame difference across the whole file** and print where motion is. Three
+   lines of numpy, and it located both failures precisely: `static 0-22, MOVING 22-132, static
+   132-239` is a healthy card; `static 0-47, MOVING 48-91, static 92-502` is a broken one.
+
+When conforming: **frame rate FIRST** (frame indices mean nothing in a VFR file), then crop, then
+scale, then trim by frame number. Crop before scaling if the raster is a pixel off exact — 1216
+against an ideal 1215 would otherwise apply a 0.08% anamorphic squeeze. And start the trim on the
+**first moving frame** rather than at a nominal "cut one second": the delivered file opened with
+0.77 s of dead hold, so a literal 1 s cut would have begun 8 frames inside the animation.
+
+---
+
 ## Speed effects: stabilise first, and match the motion model to the motion
 
 Speeding a handheld or walking shot up multiplies the residual bob. The order is not negotiable:

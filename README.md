@@ -103,7 +103,8 @@ Most of the value is in the traps, not the happy paths:
 - `references/method.md` — measuring instead of asserting, confidence labels, the
   write-back protocol, why a cross-check has to assert *agreement* rather than track a
   stable disagreement (that one shipped eight wrong renders), why you must never measure a
-  boundary relative to the thing you are moving, and why a clever classifier on a weak signal was
+  boundary relative to the thing you are moving, why a guard's reference window has to be where the
+  signal actually is, and why a clever classifier on a weak signal was
   built and then deliberately abandoned
 - `references/offload-protocol.md` — why `F_NOCACHE` is best-effort not a guarantee,
   how to force a genuine device read without `sudo`, and why deleting an offload's
@@ -118,8 +119,9 @@ Most of the value is in the traps, not the happy paths:
   rough-cut traps (honouring an editor's own trims, orphaned reactions, why speech
   recogniser timings must never be cut on, why a forced aligner shifts every label after a
   word the transcript is missing, the three different things "uh" can be, why a stabiliser that
-  cannot model zoom fails on a dolly shot, and why a subpixel filter is the difference between a
-  push-in and apparent camera shake)
+  cannot model zoom fails on a dolly shot, why a fade's SHAPE matters more than its length (specify
+  the level at 25/50/70/85%, not a duration), how to vet a supplied motion graphic in three cheap
+  checks, and why a subpixel filter is the difference between a push-in and apparent camera shake)
 - `references/resolve-api.md` — assembling a project for a post house by script: the
   playback frame rate that defaults to 24 and makes a 29.97 timeline play at 0.8× with
   audio that sounds like crackle, the calls that return success and do nothing, and the
