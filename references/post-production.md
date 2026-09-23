@@ -120,6 +120,67 @@ closing consonant carrying 66% of its energy above 2.5 kHz in its last third. Th
 is why the next person does not re-litigate it — and it is the difference between a
 correction and a fudge factor.
 
+### A forced aligner is a better instrument than a recogniser — and it lies differently
+
+If word times matter, a **forced aligner** (Montreal Forced Aligner and similar) beats an
+ASR transcript: it is given the words and only has to place them, so it returns word *and
+phone* boundaries in the source timebase. It is the right tool and worth the install.
+
+But it fails in a way that is far more dangerous than ASR's systematic lateness, because
+its output looks authoritative:
+
+⛔ **An aligner can only place tokens that are present in the transcript.** If the speaker
+says something the transcript does not contain — a filler, a false start, a breath-word —
+the aligner has nowhere to put it, so it **stretches a neighbouring word over it and
+shifts every label after it.** On one interview a 345 ms "uh" that the transcript lacked
+turned into a 370 ms label for the word "have", and the whole following phrase sat a word
+off. Four separate edits were made on those labels; three of them overrode the operator's
+ear, and the operator was right every time.
+
+**So: a word label that is implausibly long is a report that the LABEL is wrong, not that
+the word is long.** Check the audio at that point for something unlisted before trusting
+anything downstream of it. An aligner's confidence is about fit to the text you gave it,
+not about whether that text is what was said.
+
+Two related limits worth knowing before relying on one:
+
+- **Alignment is not transcription.** Do not use an aligner to find out what was said.
+- **Aligner boundaries are for TIMES, not for CUTS.** Measured on one programme, at a
+  one-frame budget only **42 %** of the aligner's *correct* in-points had a frame boundary
+  landing in genuine adjacent silence. Still validate against an energy onset.
+
+### Removing a disfluency: find out which KIND it is first
+
+"Uh" names at least three different objects and each needs a different edit. They sound
+alike, and **no amount of refining the wrong edit converges** — that cost five rounds and
+four wrong attempts on one VO:
+
+| kind | what it is | the edit |
+|---|---|---|
+| **inserted filler** | a discrete schwa between words | cut it out |
+| **filled pause** | a normal word stretched flat | shorten its phones |
+| **prolonged vowel** | one word held | splice *inside* the vowel, period-aligned |
+
+What actually identified each — none of it visible to an aligner, an envelope, or a
+spectral-centroid boundary detector:
+
+- **filled pause → F0 flatness against the speaker's own distribution.** 8.5 Hz of pitch
+  movement where she normally uses 17.9. Not amplitude, not duration.
+- **prolonged vowel → continuous unarticulated voicing** with a steady centroid and no
+  consonantal structure.
+- ⚠️ **Amplitude shape cannot tell voiced from unvoiced.** A vowel tail was confidently
+  misread as a `/p/` plosive; the autocorrelation peak said 0.425 at F0 158 Hz with 95 % of
+  the energy below 1 kHz. Use an autocorrelation peak in a 70–350 Hz band plus an LF/HF
+  split, not the shape of the envelope.
+
+**When a cut does not fix a reported disfluency, question what kind of object it is rather
+than moving the cut.**
+
+**The cheap process lesson, which beat all of the above: put candidate audio in front of
+the operator early.** Six A/B clips cut from the raw source resolved in one round what
+three rounds of spectral analysis got wrong. Their ear is the instrument; measurement's job
+is to *implement* the answer, not to find it.
+
 ### Read the isolation figure, because it decides what post can do
 
 The tool reports, per channel, how much louder each person is on their own lavalier
@@ -258,6 +319,21 @@ Two details:
   pulls the tail of the outgoing speech down with it and sounds like a swallowed word.
 - **Measure the splices, do not assume them.** The figure to report is peak sample
   difference across each join, per splice, before and after.
+
+⚠️ **20 ms is right between words and wrong inside one.** Removing material from *within* a
+phone needs two different habits:
+
+- **Snap the removal to a whole number of pitch periods.** Do that and the join becomes
+  inaudible: measured notches of **2.3–2.6 dB** against a **7.5 dB median** at the same
+  speaker's own natural word junctions — three times shallower than a real boundary, i.e.
+  quieter than the joins a listener already accepts. Use a short crossfade (~12 ms), not 20.
+- ⛔ **A 1-frame fade is not a safe standing rule.** Applied inside a phone it was measured
+  to be *actively harmful*: it still clicked (2.95) **and** attenuated the following `/ð/` by
+  3.4 dB. Fade lengths are per-context; do not promote one to a default.
+
+**The cleanest join in that job landed in real silence on both sides.** When there is a
+choice of where to cut, prefer both ends in silence over a clever mid-phone splice — the
+measurement will reward it.
 
 ### Cutting where the language is awkward
 

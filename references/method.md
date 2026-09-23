@@ -195,6 +195,45 @@ dBFS with zero overs. Measure the thing that ships, in the form it ships.
 
 ---
 
+## A cross-check must assert agreement, not track disagreement
+
+The previous section is about a check that cannot see the failure. This one is about a
+check that **sees the failure, reports it every single run, and still lets it ship** —
+because what it asserts is that the discrepancy has not *changed*.
+
+A fast ffmpeg proxy was built alongside the NLE render as a cheap way to watch the cut.
+It disagreed with the NLE by a clean ~1.15× on every graded clip. That was measured,
+written down, labelled "unexplained but stable", and guarded by a tripwire asserting the
+gain had not moved since the previous build. **It never moved. Eight review renders were
+approved that did not show the deliverable**, and the cause turned out to be a stale baked
+LUT that had never been compared against the CDL it claimed to implement (`grade-match.md`
+has the colour specifics).
+
+Three rules, all of which generalise past colour:
+
+1. **Derive, do not duplicate.** Two implementations of one transform, in two formats,
+   with nothing comparing them back to each other, will eventually disagree — and the
+   disagreement will look like a mystery rather than a bug. Generate the second from the
+   first at run time.
+2. **"Unexplained but stable" is a decision to ship the error indefinitely.** Where a
+   correct absolute value is knowable — two pipelines rendering the same edit *should*
+   agree — assert **that**. Keep change-detection for quantities that genuinely have no
+   known-good value, and say which mode you are in.
+3. **Never classify test cases by the quantity under test.** This check split frames into
+   "graded" and "control" by *whether their gain deviated from unity*. So the moment the
+   two pipelines were reconciled, every frame became a control, the graded set went empty,
+   and the check could never fire again. **A test that disappears when it starts passing is
+   not a test.** Label cases from the structure that defines them — here, which shots carry
+   a grade according to the edit — not from the measurement.
+
+And the corollary that reaches backwards: **any measurement taken through an unvalidated
+pipeline is provisional.** A confident, well-documented colour identification made through
+this proxy reversed completely once the proxy was fixed. Before trusting a chain to measure
+something, validate the chain against something independent — and keep enough of the
+measurement (region, inputs, pipeline) that it can be re-run when the chain changes.
+
+---
+
 ## Don't build a classifier on a weak signal
 
 Tempting pattern: take a noisy metric, add logic to decide what the user *meant*,
