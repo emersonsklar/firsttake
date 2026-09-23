@@ -27,6 +27,41 @@ Three independent checks, all cheap:
 
 If the body also writes a baked-in-look review file, that file is a free answer key.
 
+### When the cheap checks are confounded, compare contrast — not brightness
+
+On a second project the three checks above all failed on the *same camera model*, because
+the footage was a walk-around B-roll roll rather than a controlled setup: no chart in
+frame, no neutral ladder, and **the 10-bit floor test was swamped by codec undershoot** —
+the known-log clip read min 53 against a nominal 95, and so did the known-S-Log3 clip. The
+measurement was dominated by noise, not by the transfer function.
+
+What worked was a **contrast signature**, which is what log actually changes. A log curve
+lifts blacks and compresses highlights; it does **not** reliably change the mean, so any
+test built on average brightness — including a "does applying the LUT move this camera
+closer to the other one" ΔRGB test — is weak on its own:
+
+| clip | std | p1 | p50 | p99 | p99−p1 |
+|---|---|---|---|---|---|
+| known S-Log3, ungraded | 33.4 | 26.0 | 128.3 | 149.7 | **123.7** |
+| the clip in question, ungraded | 54.5 | 26.7 | 152.0 | 209.0 | **182.3** |
+| the clip in question, + log→709 LUT | 61.7 | **2.0** | 135.3 | 199.3 | 197.3 |
+
+The known-log clip has the textbook signature: everything squeezed into a 124-level band
+with the blacks held up off zero. The suspect clip does not — and applying the log LUT to
+it **crushed p1 from 26.7 to 2.0** while pulling the median *away* from the reference
+camera. That is what a log→display transform does to footage that was already
+display-referred, and it destroys shadow detail irrecoverably.
+
+**So: identify log by the shape of the distribution, not by its centre**, and treat "the
+LUT made it match better" as suggestive at best. State the result as `LIKELY` — none of
+this is chain-independent, and a chart in frame still settles it in one frame.
+
+⚠️ **Do not inherit a profile identification across clips from the same camera.** A whole
+roll was graded as log on the strength of one clip that had been confirmed log, plus a
+shared filename marker. When the confirmation was later retracted, twelve clips were
+already being graded wrong. Same camera, same day, same metadata is **circumstantial**;
+label it `LIKELY` and keep the inheritance visible so it can be revoked in one place.
+
 ---
 
 ## The recipe
@@ -85,6 +120,43 @@ point, not an authority.
 - ⚠️ **A skin mask picks up more than skin.** An early "skin sits at 0.408" was really
   0.506; the mask was including shadowed neck and hands. Constrain the mask to the face
   region, and print the pixel count so a mask that collapsed is visible.
+- ⚠️ **Record WHERE a colour measurement sampled, and THROUGH WHICH CHAIN.** A profile was
+  declared CONFIRMED on an "83.41 → 43.35 ΔRGB" improvement. The script was ad-hoc and did
+  not survive, the measurement boxes were never written down, and the numbers lived on only
+  in a comment — so the figure could never be reproduced or checked. It was later found to
+  have been measured through a miscalibrated transform, and corrected it **reversed**. A
+  colour number without its sampling region and its pipeline is an opinion with a decimal
+  point.
+
+### ⛔ Express one grade once — the trap that cost eight review renders
+
+A fast ffmpeg proxy was kept alongside the NLE build as a cheap cross-check. For **eight
+builds it rendered ~1.15× darker than the NLE on every graded clip.** The gap was noticed,
+measured, labelled "unexplained", and guarded by a check that asserted **the gain had not
+moved since the last build.** It never moved. It was wrong the whole time, and the operator
+approved eight renders that did not show the deliverable.
+
+**Cause: the grade existed twice.** The builder held the ASC CDL as four numbers and gave
+them to the NLE live; the proxy read a pre-baked `.cube` of "the same" CDL. The cube did
+not implement it — 0.3944 at mid-grey where the CDL says 0.4542, a ratio of 0.868, and
+**1 / 0.868 = 1.152** against the measured 1.1543. Nothing ever compared the two
+representations against each other.
+
+- **Derive, do not duplicate.** Generate the second representation from the first at run
+  time. With `power = 1.0` an ASC CDL is affine — slope/offset plus a saturation matrix —
+  and trilinear interpolation of an affine function is *exact*, so a generated 33-node cube
+  reproduces the arithmetic to 0.0001/255. There is no accuracy argument for a stale bake.
+- **A stray bake is contagious.** Where the bad cube came from was never established, which
+  means anything else that ever consumed it carries the same error. Renaming it `BROKEN_*`
+  and writing down why beats deleting it.
+- The general form of this failure is in `method.md` — *a cross-check must assert
+  agreement, not track disagreement.*
+
+⚠️ And one claim this episode destroyed, worth not repeating: **"the corrector runs before
+the LUT, so CDL order is critical" was tested through the bad bake.** Re-measured properly,
+the two orders land 1.26 and 1.25/255 from the NLE — with `power = 1.0` and gentle
+slope/offset, **order barely matters.** Implement the NLE's order because it is what the
+NLE does, not because of a number measured through a broken chain.
 
 ---
 
