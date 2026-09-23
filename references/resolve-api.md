@@ -99,6 +99,16 @@ This is the category that wastes a day, because the build prints no problems.
   anyway.
 - **`DeleteProject` refuses to delete the currently loaded project** and reports failure
   in a way easy to read as "gone." Load a throwaway first, then delete.
+- 🔴 **`GetProperty("AnyNameAtAll")` returns `False`** — not `None`, not an error. **It cannot be
+  used to test whether a property exists**, and a probe that concludes "the key is there, it is
+  just set to False" is reading its own noise. Only `SetProperty` returning `True` is evidence
+  that a key exists.
+- 🔴 **A render can be a byte-identical duplicate of the previous one, reported as Complete.**
+  Two exports of the same timeline, taken after changing a setting in the UI between them, came
+  back with the same size, the same `framemd5` and **PSNR = inf on every frame**. The setting's
+  analysis had not been re-run, and nothing said so. Every downstream metric then agreed to four
+  decimal places, which is the only reason it was caught. **Hash each export against the previous
+  ones and fail loudly on a match** — a setting that produced an identical file did not take.
 
 ---
 
@@ -173,6 +183,38 @@ so it survived the first reframe tested and misplaced every other one.
 - Prefer a per-camera **ASC CDL** over a baked LUT: it is four readable numbers, it
   survives a round trip through other software, and a human can adjust it. See
   `grade-match.md` for deriving one.
+
+### Loading a LUT you generated yourself
+
+Two hard walls, both of which return `False` with no explanation:
+
+- 🔴 **`SetLUT` refuses any path outside Resolve's own LUT library.** Not a permissions problem and
+  not a path-format problem — it simply will not load a cube from elsewhere. Write generated cubes
+  into `<LUT library>/<yourproject>/` and call **`project.RefreshLUTList()`** afterwards: the
+  library is cached at load and a file dropped in behind its back is not found.
+- 🔴 **The parser wants ASCII.** A UTF-8 em-dash in a *comment line* made `SetLUT` return `False`
+  on all twelve clips. Match the vendor dialect exactly: **ASCII only, CRLF line endings,
+  tab-separated triplets**, a blank line either side of `LUT_3D_SIZE`. ffmpeg's `lut3d` splits on
+  arbitrary whitespace and ignores CR, so one file in that dialect still feeds both pipelines —
+  which is what you want, so that the two cannot diverge.
+
+⚠️ The library path contains spaces, and **ffmpeg's `lut3d` fails on spaces**. So write the cube
+once to a space-free working directory for ffmpeg, copy it into the library for the NLE, and
+**assert the two copies are byte-identical**. One bake, two locations, one definition of the grade.
+
+### What is NOT scriptable: stabilisation
+
+Measured on 21.1.0.17 against a real timeline item: stabilisation appears in **none** of the 32
+keys `GetProperty()` returns, and `SetProperty` returns `False` for `Stabilization`,
+`StabilizationEnabled`, `StabEnabled`, `Stabilize`, `StabilizationMode`, `StabMode`, `CameraLock`,
+`StabilizationStrength`, `StabStrength`, `StabilizationSmooth`, `StabilizationZoom` and
+`Smoothing`. `MediaPoolItem.GetClipProperty()` has nothing either.
+
+It is worth the one manual step anyway, because the NLE's stabiliser is materially better than
+`vidstab` on some motion (see `post-production.md`). The shape that works: **script a scratch
+project containing the clip at 1x and ungraded, have the operator run the stabiliser in the UI,
+then script the export and everything downstream.** Render the intermediate ungraded and
+full-raster so the normal colour and reframe chain still applies to it exactly once.
 
 ---
 

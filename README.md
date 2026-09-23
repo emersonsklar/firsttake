@@ -102,8 +102,9 @@ Most of the value is in the traps, not the happy paths:
 
 - `references/method.md` — measuring instead of asserting, confidence labels, the
   write-back protocol, why a cross-check has to assert *agreement* rather than track a
-  stable disagreement (that one shipped eight wrong renders), and why a clever classifier
-  on a weak signal was built and then deliberately abandoned
+  stable disagreement (that one shipped eight wrong renders), why you must never measure a
+  boundary relative to the thing you are moving, and why a clever classifier on a weak signal was
+  built and then deliberately abandoned
 - `references/offload-protocol.md` — why `F_NOCACHE` is best-effort not a guarantee,
   how to force a genuine device read without `sudo`, and why deleting an offload's
   own manifest breaks the provenance chain one hop later
@@ -116,15 +117,17 @@ Most of the value is in the traps, not the happy paths:
   timecode, speaker attribution as a measurement, loudness per speaker, and the
   rough-cut traps (honouring an editor's own trims, orphaned reactions, why speech
   recogniser timings must never be cut on, why a forced aligner shifts every label after a
-  word the transcript is missing, the three different things "uh" can be, and why a
-  subpixel filter is the difference between a push-in and apparent camera shake)
+  word the transcript is missing, the three different things "uh" can be, why a stabiliser that
+  cannot model zoom fails on a dolly shot, and why a subpixel filter is the difference between a
+  push-in and apparent camera shake)
 - `references/resolve-api.md` — assembling a project for a post house by script: the
   playback frame rate that defaults to 24 and makes a 29.97 timeline play at 0.8× with
   audio that sounds like crackle, the calls that return success and do nothing, and the
   one that pops a modal dialog and blocks the entire API
 - `references/grade-match.md` — identifying what log format you actually recorded when
   the container tag is wrong (use a CONFIRMED clip from the *same* camera as the control —
-  comparing against a *different* camera's log curve produced a confident wrong answer), one static CDL per camera instead of a baked LUT, why expressing
+  comparing against a *different* camera's log curve produced a confident wrong answer), why one
+  corrector cannot neutralise twelve locations shot under three different lights, one static CDL per camera instead of a baked LUT, why expressing
   one grade in two formats put a 13 % error into eight approved renders, why a
   colour measurement that looks perfect on the first attempt is a bug report, and how to
   reproduce a graphics template from a delivered file (width solves the size, ink height
