@@ -27,40 +27,72 @@ Three independent checks, all cheap:
 
 If the body also writes a baked-in-look review file, that file is a free answer key.
 
-### When the cheap checks are confounded, compare contrast — not brightness
+### When the cheap checks are confounded, use a CONFIRMED clip from the SAME camera
 
-On a second project the three checks above all failed on the *same camera model*, because
-the footage was a walk-around B-roll roll rather than a controlled setup: no chart in
-frame, no neutral ladder, and **the 10-bit floor test was swamped by codec undershoot** —
-the known-log clip read min 53 against a nominal 95, and so did the known-S-Log3 clip. The
-measurement was dominated by noise, not by the transfer function.
+On a second project all three checks above failed on the *same camera model*, because the footage
+was a walk-around B-roll roll rather than a controlled setup: no chart in frame, no neutral ladder,
+and **the 10-bit floor test was swamped by codec undershoot** — the known-log clip read min 53
+against a nominal 95, and so did the known-S-Log3 clip. The measurement was dominated by noise,
+not by the transfer function.
 
-What worked was a **contrast signature**, which is what log actually changes. A log curve
-lifts blacks and compresses highlights; it does **not** reliably change the mean, so any
-test built on average brightness — including a "does applying the LUT move this camera
-closer to the other one" ΔRGB test — is weak on its own:
+🔴 **The thing that works is a control: a clip from the SAME camera whose format is CONFIRMED.**
+Not another camera, and not an abstract idea of what log looks like. Measured ungraded, per-frame
+luma percentiles:
 
-| clip | std | p1 | p50 | p99 | p99−p1 |
-|---|---|---|---|---|---|
-| known S-Log3, ungraded | 33.4 | 26.0 | 128.3 | 149.7 | **123.7** |
-| the clip in question, ungraded | 54.5 | 26.7 | 152.0 | 209.0 | **182.3** |
-| the clip in question, + log→709 LUT | 61.7 | **2.0** | 135.3 | 199.3 | 197.3 |
+| clip | std | p1 | p50 | p99 |
+|---|---|---|---|---|
+| **same camera, CONFIRMED log** | 56.8 | **20.7** | 133.3 | 214.0 |
+| the clips in question (11 of them) | 34.6–61.2 | **19.0–41.3** | 58.7–151.7 | 165.7–254.0 |
 
-The known-log clip has the textbook signature: everything squeezed into a 124-level band
-with the blacks held up off zero. The suspect clip does not — and applying the log LUT to
-it **crushed p1 from 26.7 to 2.0** while pulling the median *away* from the reference
-camera. That is what a log→display transform does to footage that was already
-display-referred, and it destroys shadow detail irrecoverably.
+The control sits in the *middle* of the distribution of the clips in question, and **not one of
+the eleven has a black floor approaching 0** — which a display-referred capture of a sunlit
+exterior with deep shade certainly would. One pass, settled.
 
-**So: identify log by the shape of the distribution, not by its centre**, and treat "the
-LUT made it match better" as suggestive at best. State the result as `LIKELY` — none of
-this is chain-independent, and a chart in frame still settles it in one frame.
+**The black floor is the robust discriminator, and the question is "near zero or not"** — not its
+exact value, which codec undershoot ruins. That is why the floor test failed as a *threshold* test
+("is it at code 95?") and works as a *comparative* one.
 
-⚠️ **Do not inherit a profile identification across clips from the same camera.** A whole
-roll was graded as log on the strength of one clip that had been confirmed log, plus a
-shared filename marker. When the confirmation was later retracted, twelve clips were
-already being graded wrong. Same camera, same day, same metadata is **circumstantial**;
-label it `LIKELY` and keep the inheritance visible so it can be revoked in one place.
+⚠️ **THE TRAP THAT COST A DAY, and it is worth more than the method.** An earlier version of this
+section said to compare the contrast signature against **the other camera's** raw log, and
+concluded the clip in question "does not have a log signature" because it was much more contrasty
+than the reference. That reasoning was wrong: **the two cameras used different log curves**, and
+one was far flatter than the other, so the suspect clip correctly looked more contrasty *while
+still being log*. **Using one log format as the yardstick for another guarantees the wrong
+answer.** It produced a confident, documented, wrong retraction that reached a deliverable's spec
+and came close to re-grading twelve clips the wrong way.
+
+⚠️ **Run the transform on the control before calling it harmful.** "Applying the LUT crushes the
+blacks from p1 26.7 to 7.7" sounds damning — until the same LUT is applied to the CONFIRMED clip,
+*where it is the correct transform*, and takes it 20.7 → 4.0. **That is simply what the LUT does.**
+A transform's effect is only evidence of misapplication if it differs from its effect on
+known-good material.
+
+⚠️ **A wrong container tag is not evidence of the opposite.** This camera tags log footage
+`bt709`. "The tag is wrong" and "the footage is Rec.709" are different claims, and sliding from
+the first to the second is how the day started.
+
+### A format transform and a look match are different arguments
+
+Keep these apart, because conflating them makes a taste disagreement look like a technical error —
+which is exactly what happened above:
+
+- the **input LUT** is a *format transform*. It is either right or wrong, and a CONFIRMED
+  same-camera control decides it.
+- the **CDL** is a *look match*, fitted under one set of lights to sit beside another camera. Its
+  applicability to footage shot somewhere else is a judgement for the operator on a real cut, and
+  no measurement settles it.
+
+The "the graded b-roll looks warm and crushed" observation was real; it was about the CDL, fitted
+in an interview room and applied unchanged to daylight exteriors. **Ask which of the two you are
+arguing about before reaching for a measurement.**
+
+⚠️ **Do not inherit a profile identification across clips without saying so.** A whole roll was
+graded as log on the strength of one clip plus a shared filename marker, and when that clip's
+confirmation was (wrongly, as it turned out) retracted, twelve clips were implicated at once. Same
+camera, same day, same metadata is **circumstantial**: label it `LIKELY`, keep the inheritance
+visible in one place so it can be revoked in one place — and where a group might genuinely differ
+(a handheld walk-around versus a locked-off interview), **measure each group rather than assuming
+the set is homogeneous.**
 
 ---
 

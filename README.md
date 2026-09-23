@@ -123,8 +123,8 @@ Most of the value is in the traps, not the happy paths:
   audio that sounds like crackle, the calls that return success and do nothing, and the
   one that pops a modal dialog and blocks the entire API
 - `references/grade-match.md` — identifying what log format you actually recorded when
-  the container tag is wrong (and how to tell by *contrast* when the cheap checks are
-  swamped by codec noise), one static CDL per camera instead of a baked LUT, why expressing
+  the container tag is wrong (use a CONFIRMED clip from the *same* camera as the control —
+  comparing against a *different* camera's log curve produced a confident wrong answer), one static CDL per camera instead of a baked LUT, why expressing
   one grade in two formats put a 13 % error into eight approved renders, why a
   colour measurement that looks perfect on the first attempt is a bug report, and how to
   reproduce a graphics template from a delivered file (width solves the size, ink height
