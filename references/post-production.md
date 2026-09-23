@@ -380,6 +380,73 @@ If you do need the push:
 
 ---
 
+## Speed effects: stabilise first, and match the motion model to the motion
+
+Speeding a handheld or walking shot up multiplies the residual bob. The order is not negotiable:
+
+    stabilise at 1x  ->  speed up + motion blur  ->  grade  ->  crop/scale
+
+**Stabilising after the speed-up cannot work.** The blur is built by averaging N source frames into
+each output frame, so the wobble is baked into a smear and there is no sharp feature left to track.
+
+**Build the blur, do not just drop frames.** A plain frame-skip reads as a fast-forward. Average
+groups of N frames so each output frame carries the whole group's movement — `tmix=frames=N` then
+select every Nth. ⚠️ Select the **last** frame of each window (`eq(mod(n,N),N-1)`), not index 0:
+index 0 is the one frame with no history, so `not(mod(n,N))` leaves the first frame of every step
+unblurred.
+
+### Quantify the wobble before treating it
+
+Fit inter-frame displacement to `d(p) = t + s·p`, so the uniform scale `s` absorbs the intended
+dolly and `t` is the leftover translation; then high-pass `t`. **Validate the estimator by injecting
+a known shift** — here 0.40 px was recovered as 0.31, so every figure read ~23% conservative, which
+is the right direction to be wrong in.
+
+The result: **1.83 Hz, sharply narrowband, 36% of energy in the 0.8–3 Hz band.** That is a walking
+cadence, and knowing it is a *narrowband* fundamental rather than broadband noise is what makes the
+next decision possible.
+
+### The motion model is the whole story
+
+🔴 **`vidstab` fails on a centred forward dolly, structurally: libvidstab models translation and
+rotation with NO ZOOM TERM.** The frame is expanding radially, that expansion swamps its global fit,
+and its translation estimate comes out attenuated. It removed 13–15% of the amplitude, **left the
+1.83 Hz fundamental exactly where it was**, and cost 5–8 points of high-frequency detail plus a
+forced 8-bit round trip (libvidstab is 8-bit only).
+
+The NLE's own **similarity** stabiliser fits scale — the term vidstab lacks — and moved the dominant
+frequency to 10.95 Hz. The bounce *gone* rather than smaller, for less sharpness cost. What remains
+reads as texture rather than as someone walking.
+
+**So: ask what your stabiliser can represent before blaming the footage.** And prefer removing a
+narrowband fundamental over shaving amplitude off it — the frequency signature is what the eye
+recognises as amateur.
+
+### Two things to check on any stabilised shot
+
+- ⚠️ **Did it eat the intended motion?** On a dolly the forward travel *is* a scale change, so a
+  stabiliser that fits scale can cancel the thing the shot depends on. Watch the `s` term.
+- ⚠️ **A 4-corner / perspective mode is the wrong reach on a one-point corridor.** Measured, it
+  removed *less* bob and increased shear 12% with 31% more frame-to-frame variability. **And a
+  straightness test cannot detect that** — a homography maps straight lines to straight lines, so
+  collinearity is a projective invariant and the test is structurally blind. Measure departure from
+  rigidity instead: `‖A_affine − A_similarity‖`, plus the residual of an affine fit.
+
+### Render the intermediate ungraded and full-raster
+
+A watchable candidate is graded, cropped and scaled; dropping one of those into the timeline applies
+the grade twice and the reframe twice. Render the deliverable version at **full raster with no
+colour and no crop** — speed and blur only — and let the normal per-clip chain apply downstream
+exactly once. Keep the clip's **id** unchanged if any per-clip data is keyed on it, or the trim
+silently reverts to a shared default.
+
+⚠️ And write down **which source frame the intermediate's frame 0 is.** Getting that wrong shifts
+the shot by seconds. Prove it rather than asserting it: render 1x from the intermediate, PSNR it
+against the raw reference at offsets 0/1/2/5, and confirm the peak is at 0 and falls off
+monotonically.
+
+---
+
 ## Music and stock assets
 
 - **A watermarked preview is not a delivery asset.** Check for the audible watermark

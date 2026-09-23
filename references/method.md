@@ -234,6 +234,64 @@ measurement (region, inputs, pipeline) that it can be re-run when the chain chan
 
 ---
 
+## Never measure a boundary relative to the thing you are moving
+
+An earcon had to finish before the speaker's next word. The build found her speech onset by
+searching **forward from the earcon's end** — so the onset it reported *moved when the earcon
+moved*. Placing the earcon five frames earlier looked like it bought 167 ms of clearance and
+delivered 52 ms, because the 167 had been computed against an "onset" that was merely the first
+thing found after the earcon's **old** position.
+
+The fix is one line of thinking: **measure the boundary independently of the object being
+positioned**, then compare. Her real onset was a fixed property of the recording all along —
+per-frame RMS rising 12 dB above a floor taken from a span verified silent.
+
+**The general form: a reference must not be a function of the variable.** It shows up wherever a
+search window, a threshold or a mask is derived from the thing under test — and it always reads as
+"the fix didn't work as much as predicted" rather than as a measurement error.
+
+---
+
+## Compare like with like, and let a guard that cannot decide escalate
+
+Two failures from one small check, both worth generalising.
+
+**It compared a peak against an RMS.** A guard meant to stop a mute span from silencing real
+dialogue compared the span's **peak** against the lane's **RMS** 90th percentile. Speech peaks run
+10–15 dB above its RMS, so every span looked loud enough to be a line, and it refused a correct
+edit — reporting 4.7 dB of headroom where the honest RMS-to-RMS figure was 23.2. **A ratio between
+two different statistics is not a ratio.** Name the statistic on both sides of every threshold.
+
+**And some questions a measurement genuinely cannot settle.** Off-mic direction bleeding onto a lav
+sat only ~8 dB below the subject's own voice, which is unremarkable for someone speaking in a small
+room. **Level alone cannot tell a director from a line.** The honest design is not a looser
+threshold and not a hard refusal:
+
+- pass it on measurement where the measurement is decisive;
+- otherwise require an **explicit human assertion with a reason**, recorded in the config;
+- and have the report state *which* of the two happened — `"measured"` versus `"ASSERTED by the
+  operator; the level test cannot settle it"`.
+
+That keeps the guard catching accidental spans without blocking verified-correct work, and it keeps
+the distinction visible to whoever reads the build a month later. A check that cannot decide should
+**escalate and record**, not silently widen.
+
+---
+
+## Check the length of the file you are actually reading
+
+A shot was repointed at a pre-rendered retime of its source clip — 135 frames standing in for 1107.
+Two separate length checks then compared the retime against the **original's** measured frame count
+and reported "one of these numbers is wrong and every cut depends on it". Both numbers were right;
+the comparison was a category error.
+
+- **Probe the file the pipeline will open**, not the one the manifest describes.
+- ⚠️ **Do not skip the check for the substituted file** — that drops the guard on the one file every
+  cut now depends on. Measure the substitute's own length instead.
+- Count decoded frames; never `duration × fps`.
+
+---
+
 ## Don't build a classifier on a weak signal
 
 Tempting pattern: take a noisy metric, add logic to decide what the user *meant*,

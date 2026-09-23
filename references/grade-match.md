@@ -117,6 +117,85 @@ it by eye on a real cut, rather than fit to whichever one was measured last.
 
 ---
 
+## One corrector cannot neutralise more than one white balance
+
+A camera-match CDL is fitted under *one* lighting setup. Applied unchanged to footage shot
+somewhere else it will be wrong, and wrong in a way that reads as "the grade is off" rather than as
+"this is the wrong tool". Measured on twelve b-roll clips from one camera — offices and a sunlit
+exterior — through a chain carrying a single interview-fitted CDL, as the cast of each clip's own
+near-neutral pixels in dB relative to green:
+
+    interiors   R +0.55 .. +1.31   B -1.40 .. -2.28     warm / orange
+    exterior    R -0.79            B +0.36              cool / blue
+    the interview setup            neutral, as fitted
+
+The operator watching it said the outside looked "nice and blue and crisp", the interiors "warm and
+orange-cast", the interview "cooler". Those are **three lighting conditions, not three grades going
+wrong.** Per-clip trims took the 3.6 dB spread to ≤0.36 dB.
+
+### Estimate the neutral point from the least-saturated mid-tones
+
+⚠️ **Not grey-world.** Averaging the frame assumes the scene's own colours average to grey, which
+is false here in a way that actively misleads: one clip is a deliberately multicoloured wall,
+another is mostly blue sky. Grey-world would correct the sky out of the sky.
+
+Two stages, both load-bearing:
+1. keep only **mid-luma** pixels — the 25th to 85th percentile of that frame's own luma. Drops
+   crushed shadows, where chroma noise dominates, and clipped highlights, where channels are pinned
+   and the ratio is meaningless.
+2. of those, keep the **least-saturated 20%** — most likely a wall, floor, paper or concrete.
+
+Report the mask's pixel count and mean saturation, so a mask that collapsed or found nothing
+neutral is visible rather than silent. State the result `LIKELY`: this is not a grey card, and on a
+frame with no neutral surface it degrades to the least-coloured thing present.
+
+### Correct in the space you measured, which means the trim goes in the LUT
+
+The cast is measured **after** the input transform, so the correction has to be applied after it —
+measure and correct in the same space and it is one shot with no iteration. But an NLE runs a
+node's corrector **before** that node's LUT, on the log signal, so a display-space trim cannot live
+in the CDL.
+
+Compose it into the LUT instead, per clip:
+
+    clip_cube(x) = trim(input_LUT(x))
+
+    trim:  out = ((in * gain_c) - black) / (1 - black)     per channel, clipped
+
+`gain_c = 10^(-cast_c/20)` neutralises the measured cast. The shared CDL stays untouched, no second
+node is needed, and both render paths load the identical cube so they cannot disagree.
+
+### Match the black point too. "Washed out" is a lifted black floor
+
+Cast is only half of why shots fail to cut together. These clips ran p1 = 0.4–13.5 of 255; landing
+them all at ~4 is what made them look like one piece, and it is the difference between the
+operator's "crisp" and "washed". Divide by `(1 - black)` afterwards so pulling the blacks down does
+not darken the whole image.
+
+**Do not match exposure.** Scene brightness legitimately differs — a dark display is not a bright
+corridor — and matching mid-grey across them lifts the dark ones into mush. Correcting the neutral
+point is what makes shots cut together; flattening every hue or every level is not. A sky stays
+blue because sky is not in the neutral mask.
+
+### Verify stability per channel BEFORE fitting anything static
+
+A static per-clip correction is only valid if the cast does not drift within the shot. ⚠️ Compute
+that **per channel**: a first pass pooled the channel spread with the temporal spread and reported
+"the cast moves across the shot" on 8 of 12 clips. Per channel the worst drift was 0.63 dB and most
+were under 0.1 — entirely static, and the warning was an artefact of the statistic. **A spread that
+mixes two axes is not a spread.**
+
+Sample several frames per clip, not one: a dolly or pan changes what is in shot.
+
+### And expose one knob for the ear
+
+Full neutralisation is right for consistency and occasionally wrong for a shot whose warmth is
+motivated — a tungsten-lit vignette, firelight. Keep a per-clip `strength` (1.0 = fully neutral,
+0.0 = leave it) that a re-fit **preserves**, because it is a judgement and re-measuring must not
+silently discard it.
+
+---
+
 ## Grading to a reference episode, without importing its room
 
 If there is a previous episode of the same series, it is a reference — but only partly.
