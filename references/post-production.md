@@ -108,6 +108,15 @@ the recogniser ended at 76.200 actually releases at **76.35**. One question's op
 word was placed **0.88 s early**, inside the false start before it, so a cut made on that
 timestamp would have clipped the word it was supposed to begin on.
 
+⚠️ **AND THE INVERSE, WHICH BITES WHEN YOU VALIDATE AN ALIGNER.** The recogniser swallows the
+breath *into* the word and reads **late**; an energy detector fires *on* the breath and reads
+**early**. So when you check an aligner against an energy onset, a **vowel-initial word** will
+routinely look like the aligner's worst error when the aligner is right and the detector is wrong.
+Measured on one programme: every disagreement above 30 ms was "I" or "I'm", and at each the
+"onset" was unvoiced — autocorrelation 0.29 and 0.22, against 0.74 where the same word was
+correctly detected. **Caption, and cut, the voice rather than the breath**, and report the two
+classes separately: averaged together they turned a 19 ms instrument into a 70 ms one.
+
 **Validate every in and out against an energy-onset check** — the first point where
 short-term energy rises ~12 dB above the preceding floor, measured at 10 ms resolution on
 the speaker's *own* channel. That is a different question from "where does the recogniser
@@ -141,6 +150,36 @@ ear, and the operator was right every time.
 the word is long.** Check the audio at that point for something unlisted before trusting
 anything downstream of it. An aligner's confidence is about fit to the text you gave it,
 not about whether that text is what was said.
+
+⛔ **ALIGN AGAINST THE AUDIO THE DELIVERABLE CARRIES.** The rule above is usually read as being
+about the *speaker's* unlisted speech. It is not limited to that: **any** sound the transcript does
+not account for will be given a real word. On one job a director's off-camera "OK" — bleed on the
+subject's lavalier, and already muted in the delivered mix — was still present in the alignment
+corpus, and the aligner spent the subject's **first word on it**, 1.4 s early, leaving a 1.16 s hole
+before the next word and dragging the four after it late. **Mute whatever the mix mutes before you
+align, then align.** It is one line of work and it removes a whole class of failure.
+
+⛔ **A BRAND NAME IS THE ONE WORD YOU MUST NOT TAKE FROM A RECOGNISER.** Product names are usually
+**out of vocabulary** in a pronunciation dictionary, so an aligner models them as spoken-noise and
+their boundaries go slack — loosening exactly the words a client video turns on. Add dictionary
+entries. And a recogniser will confidently *reorder* an unfamiliar lockup: on one job the subject's
+"my Open Ultra earbuds" was the reverse of the client's actual "Ultra Open Earbuds", and the
+question of who was wrong took three independent checks to settle:
+
+1. **two independent models.** Both returned the same order. If they disagree, neither is evidence.
+2. **prime the model with the name you expect.** A corrective `initial_prompt` carrying the
+   *correct* product name did **not** flip the output — so the acoustics were carrying it, not the
+   model's prior. Had it flipped, the only thing learned would be that the model is suggestible.
+   This step is what makes the other two interpretable, and it is the one people skip.
+3. **read the phones, and read them as an ORDER.** A stop closure whose release is **low-HF**
+   (0.1 % above 3 kHz — a bilabial /p/) followed by a nasal murmur (LF 70–95 %) came *before* a
+   closure with a **high-HF burst** (79.6 % above 3 kHz — a coronal /tr/). One word order predicts
+   that sequence and the other predicts its reverse, so the sequence alone decides it without
+   needing to identify a single word. That beat both models and the operator's expectation.
+
+The subject had said it backwards. **Caption it verbatim and escalate the discrepancy** — whether a
+client-facing subtitle silently corrects a misspoken brand name is the client's call, never the
+build's. Flag it in writing, because nobody watching the cut will notice.
 
 Two related limits worth knowing before relying on one:
 
@@ -288,6 +327,43 @@ cut, the *next* line often still refers to them. One kept line opened "Yeah, I g
 it's giving the customer the comfort and control…" — a direct response to an answer
 that no longer existed. Grep the first sentence of every turn that follows a cut for
 back-references ("Yeah", "that", "absolutely", "it") and check each one.
+
+### ⚠️ A cut across a source discontinuity MUST change the visible angle
+
+This is the defect that shipped four times on one programme, and every other check passed
+the whole time.
+
+When an edit splices ranges that sit far apart in the recording — reordered answers,
+spliced retakes — the source position **leaps** at each seam. If the same angle is on
+screen either side of that seam, the subject visibly jumps: posture, hands and head
+position all differ between takes. One programme had seams where the source moved
+**25 minutes** and the same tight single ran straight across them.
+
+The fix is grammatical, not technical: **cut angle at the seam.** A change of framing
+absorbs the discontinuity, which is exactly why editors cut on a jump rather than near it.
+Nothing else hides it — a dissolve is out of grammar for this format, and two wide crops
+2% apart in zoom do not read as a change.
+
+**Make it a check, because eyes miss it.** Walk the visible picture frame by frame,
+find every point where the visible source frame does not advance by exactly one, and
+assert the visible (lane, source, framing) changed there. On the programme above this
+found 33 seams and, before the fix, 4 uncovered — reported by frame with the size of the
+leap. Negative-test it by restoring the old shot data: a check that has never failed has
+never been tested.
+
+Two practical notes from applying it:
+
+- **The cheapest fix is usually already in the plan.** Three of the four bad seams sat
+  2.3–2.9 s before the tight shot was *going* to hand to the wide anyway. Pulling that
+  handover earlier onto the seam cost nothing and changed no grammar.
+- **Where no other angle is scheduled, a short reaction shot is the idiomatic cover** —
+  3–4 s on the listener. Check the reference episodes first: they use these sparingly
+  (1.5–3% of dialogue), so one is in keeping and a run of them is not.
+
+Note what the operator could see and the checks could not: the clips were exactly where
+the plan said, every render probe found its requested frame, the grade and graphics were
+right. **No check was asking whether a cut changed the framing**, which is the only
+property that matters here.
 
 ### Frames are the grid; samples are derived from them
 
@@ -625,6 +701,71 @@ at tracked changes would have silently dropped both picks.
     removed material. Snap them forward to the first kept word with a bound (~5 s) and
     **refuse past the bound** — a bigger jump means the content itself was cut and a human
     has to re-label it.
+
+---
+
+## Subtitles: text from the recogniser, TIME from the aligner
+
+A caption is supposed to appear within roughly half a second of the speech. A recogniser's mean
+word-boundary error, measured on one interview, was **328 ms** against a forced aligner's **23 ms**
+— so the recogniser spends two thirds of the whole budget before the cue is even placed. **On real
+footage a recogniser is not accurate enough even for subtitles**, where the tolerance is far looser
+than for a cut. Use it to learn *what* was said; force-align to learn *when*.
+`scripts/build_subtitles.py` does the mapping, shaping and both cross-checks.
+
+### Shape follows raster, and the 42-character line is a 16:9 number
+
+At 1080 px **vertical** a burn-in at a legible phone size runs out of room around **30**
+characters, and a third line reaches into the lower third — where the platform puts its own UI.
+Two lines, and hold each cue toward a ~17 cps reading rate by **extending into the silence after
+it** (capped, and never past the segment end); a cue lingering into a pause is normal practice.
+Keep brand lockups off the line break unless nothing else fits.
+
+⚠️ **Where a cue is split on CAPACITY rather than on a pause, the speech is continuous** — so its
+last word lands exactly on the next cue's first word, and taking the later of the two produces
+cues whose out-time equals the next in-time to the millisecond. Players tolerate that and it
+flickers. Let the ceiling win: trimming two frames off a continuous phrase costs nothing readable.
+
+### 🔴 Measure the pause in PROGRAMME time, not source time
+
+Cue breaks go at pauses. If the audio has an internal splice, the pause you must break on is the
+one **that survives into the deliverable**. On one VO 367 ms had been removed, and grouping on the
+source-time gap put a caption break at a pause that no longer existed: the source showed 425 ms
+between two words, the programme showed **58 ms**. Same family as "never measure a boundary
+relative to the thing you are moving" — measure the silence the viewer actually hears.
+
+### The check that proves the offsets, and the two ways it lies
+
+Cue arithmetic verified against cue arithmetic proves nothing. Open the **isolated stems** and
+compare speech energy inside captioned frames against outside, per lane.
+
+⚠️ **Not the mixed master.** Run against a master, captioned spans measured p90 −25.3 to −12.2 dBFS
+against **−25.0 dBFS in a gap carrying no dialogue at all** — the music bed swamps the distinction
+and the check has no power to fail. On the stems the same comparison separated by 35 dB.
+
+⚠️ **Dilate the caption mask before taking its complement.** The deliberate 2-frame inter-cue gaps
+are continuous speech by construction, so on a read with no real pauses they become almost the
+entire "uncaptioned" set and the figure collapses — one lane read **10.2 dB** while its captions
+were perfect, and its whole uncaptioned residue was two 60 ms slivers between cues. With those
+excluded the same lane read **226 dB**. A gap the build inserted on purpose is not evidence
+against the build.
+
+🔴 **And know what it cannot do: it is a placement smoke test, not a sync test.** Against planted
+ground truth it catches a lane placed **3 s** wrong and misses **2 s and under**, because inside a
+dense read a shifted caption still lands on *some* word. Sync therefore comes from taking the
+placement out of what the audio build **reported** — never from a second derivation of the same
+offset, which is how a subtitle file goes quietly out of sync with the mix it describes.
+
+### Two smaller things that each cost a word
+
+- **Select words by OVERLAP with the span, not containment.** An in-point chosen by measurement
+  often lands *inside* a word — one opened 20 ms into "the", on the cuttable /dh/ — and a
+  containment filter silently drops a word the viewer hears.
+- **Restore punctuation by a 1:1 token join, asserted.** An aligner emits bare lowercase tokens; a
+  caption needs sentence case and stops. Assert token-for-token against a transcript written for
+  that exact span, or a later transcript edit shifts the punctuation one word along and leaves a
+  full stop mid-sentence. Capitalise the first word of a mid-sentence pickup: a caption that opens
+  lowercase reads as a typo.
 
 ---
 

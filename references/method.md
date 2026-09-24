@@ -188,6 +188,25 @@ Two habits fall out of this:
    correlation, 100% coverage, zero drift — each of those has been a broken measurement
    here at least once. Treat a suspiciously perfect result as an alarm, then go and earn it.
 
+### An answer sitting on a search-window edge is not an answer
+
+The most recognisable form of "a number that good is a bug report", and it has its own tell.
+A boundary check reported exactly **"+300.0 ms"** on two different words, to one decimal. That was
+not a measurement — it was the ±300 ms search window's edge, reported twice because the real
+answer lay outside it both times. **An identical round error across independent items is a clipped
+search, every time.**
+
+Two habits:
+
+1. **Return where the answer was found, and whether it was found at a boundary.** A result that
+   landed on the first or last position of its window must be flagged and excluded, not averaged in.
+2. **Clamp the window to something meaningful, then widen it.** That same search was also reaching
+   *backwards past the previous word's end*, so on one word its "onset" was the tail of the word
+   before. Widening alone would have made that worse; the fix was widening **and** clamping.
+
+Once both were done, the two 300 ms "errors" became one −23 ms (correct all along) and one genuine
+disagreement with an explanation. Nothing about the underlying audio had changed.
+
 Corollary about the instrument: **do not measure through a transformation you added.** I
 reported a master clipping at +0.93 dBFS with 3636 full-scale samples. The overs were
 created by my own stereo→mono downmix adding 3 dB. Per channel the file measured −2.09
