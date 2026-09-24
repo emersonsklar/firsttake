@@ -15,6 +15,7 @@ Standalone. Useful with or without Claude.
 | `fit_clip_trims.py` | turn those measurements into per-clip white balance + black point, baked into per-clip LUTs |
 | `speed_ramp.py` | speed a shot up with real motion blur to an exact output length; solves the highest ramp peak a source allows |
 | `conform_graphic.py` | vet and conform a supplied motion graphic — raster, VFR, and where the animation actually is |
+| `build_subtitles.py` | subtitles from forced-aligned words: programme-clock mapping, cue shaping to the delivery raster, and two cross-checks |
 | `scrub_check.py` | refuse to publish credentials or client-identifying material |
 
 ## Run the harnesses after any edit
@@ -31,6 +32,7 @@ python3 measure_white_balance.py --selftest
 python3 fit_clip_trims.py --selftest
 python3 speed_ramp.py --selftest
 python3 conform_graphic.py --selftest
+python3 build_subtitles.py --selftest
 ```
 
 The four post tools plant ground truth too, and two of them document a known weakness rather
@@ -46,6 +48,14 @@ than hiding it:
 * `speed_ramp` asserts the branch arithmetic tiles the source with no gap or overlap, that the
   select expression takes the **last** frame of each blur window rather than the unblurred index 0,
   and that a ramp reaches a higher peak than a constant speed for the same source budget.
+* `build_subtitles` plants voiced bursts at times it chose, declares the words in a *different*
+  source timebase behind a non-zero placement offset and a 400 ms internal splice, and asserts the
+  cues land on the planted speech — so the clock arithmetic has to be right for the check to pass
+  at all. Then it plants faults: a wrong placement, a caption inside a span declared not-a-line, a
+  span opening mid-word, and a deliberately too-narrow search window. It also records a **bound**:
+  the stem check catches a 3 s placement error and does **not** catch 1.2 s, because inside a dense
+  read a shifted caption still lands on some word. That is asserted rather than tuned away — the
+  tempting fix is to make the check look stronger than it is.
 * `conform_graphic` generates a healthy card and a **broken** one — animation collapsed into a
   fraction of a second, then frozen — and asserts the profiler tells them apart. That is the check
   that caught a real broken delivery.
