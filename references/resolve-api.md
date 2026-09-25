@@ -283,3 +283,71 @@ A round trip through FCPXML works and needs no Studio licence, with two traps:
 - **A clip's `start` is in the asset's own timecode domain.** Declaring zero-based assets
   when a camera carries `15:49:12;18` drop-frame made Resolve refuse the import outright:
   *"No overlap between specified target timecodes."*
+
+---
+
+## Five more calls that report success and are wrong (measured 2026-09-23, Studio 21.1.0.17)
+
+From building a 9:16 short with generated cards and burned-in captions.
+
+### A STILL IGNORES `endFrame`, and the collision is silent
+
+A PNG appended with `startFrame: 0, endFrame: 94` landed **150 frames** long — the still
+clamp — and `SetClipProperty("Duration", "94")` did not change it. The next clip, appended at
+its own `recordFrame`, then collided with the over-long still and **Resolve moved it**: the
+track read 0 / 116 / **266** / 893 against a plan of 0 / 116 / **210** / 893.
+
+⚠️ And the usual guards all passed. `AppendToTimeline` returned the full count, the track
+reported no holes, and the last clip still ended exactly on the programme length. The only
+symptom was a later stage noticing a clip at a position it had no plan entry for. **A "tiles
+with no gap" check cannot see clips that slid, because they still tile.** Compare each item's
+`GetStart()` against the plan position it was asked for, item by item.
+
+The fix is not to fight it: **render a still to a clip of exactly the right length** and let
+the frame count be a fact about the file, verified with `ffprobe -count_frames` before Resolve
+sees it.
+
+### Numbered stills in one folder import as an IMAGE SEQUENCE
+
+`cue001.png` … `cue012.png` in one directory collapsed into **one** pool clip. Eleven of
+twelve captions therefore never existed, and `ImportMedia` reported success for the one clip
+it did make. Either break the numeric pattern in the filenames, or — better for captions —
+build **one full-length ProRes 4444 alpha track** and lay it as a single clip. That also
+removes every per-cue placement error at once.
+
+⚠️ Assert the track really carries alpha (`pix_fmt` containing `a`, e.g. `yuva444p10le`). A
+4444 file written without alpha composites as an opaque black rectangle over the whole frame.
+
+### `SaveProject` is on the PROJECT MANAGER, not the Project
+
+`project.SaveProject` is `None`, so calling it raises `TypeError` — *after* an otherwise
+completely successful build. Use `projectManager.SaveProject()`.
+
+### `SetCDL` needs `NodeIndex`
+
+```python
+cdl = dict(numbers); cdl["NodeIndex"] = "1"
+g.SetCDL(cdl)
+```
+
+Without the key it returns False and the grade is simply **absent**. The vendor log→709 LUT
+then renders alone, which looks like a washed-out picture rather than like a failure. And
+there is no `GetCDL`, so this can only be confirmed by rendering.
+
+### Loudness must be measured in the CHANNEL LAYOUT that ships
+
+Resolve lays a **mono** clip onto a **stereo** track as dual-mono, which is **+3 dB** under
+ITU-R BS.1770 because both channels carry the same signal. A mix written and measured as mono
+at −14.0 LUFS rendered at **−11.0**. Two artefacts, each internally consistent, disagreeing
+by 3 dB, with nothing comparing them. Write the stem in the delivery layout, and **assert the
+render and the stem agree** rather than trusting either alone.
+
+### The ffmpeg grade divergence is an operation-ORDER bug, not an ffmpeg fact
+
+Worth knowing, because it changes how much the ffmpeg cross-check is worth. The 14–18% grade
+divergence that made ffmpeg renders untrustworthy on an earlier project does **not** reproduce
+when both paths apply the **log-fitted CDL before the vendor LUT** — which is Resolve's own
+order (a node's corrector runs before its LUT). Measured on five picture frames of one short:
+mean |difference| **1.3 codes of 255**, luma correlation **r = 0.9996**, mean luma within
+**0.3%**. Keep shipping the NLE render, but a diff this tight is a real cross-check rather
+than a formality.
