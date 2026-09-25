@@ -159,6 +159,48 @@ because there *is* a measurement and it *does* pass:
 
 ---
 
+## A guard must assert the PROPERTY, not the creative choice
+
+The sharpest guard failure is not a check that misses a fault. It is a check that **fails a correct
+build**, because it pinned a creative decision's literal values instead of the invariant those
+values were an instance of.
+
+An audio build asserted *"the earbud sections must be LEFT-biased and the speaker section
+RIGHT-biased."* True of the design it was written for, and it passed for four versions. Then the
+client asked for the earbuds **centred**, and the guard failed a build that was exactly right: a
+centred pan leaves those sections at the source recording's **own −1.32 dB right bias**, which is
+not left-biased and never could be.
+
+That is the dangerous shape, because of what happens next. **A guard that encodes taste has to be
+edited every time the taste changes, and the moment you are editing it is the moment you least want
+it to argue with you.** The overwhelming temptation is to delete it or loosen it to nothing, and
+then it never catches anything again.
+
+The fix is to ask what the creative choice was an *instance* of:
+
+| don't assert | assert |
+|---|---|
+| "this section is left-biased" | "this section is displaced from **its own** unprocessed balance in the direction the config asks, by roughly the amount that control produces" |
+| "the gain here is −14 dB" | "the two sections differ by the step the config declares" |
+| "shot 3 is the wide" | "the angle **changed** across this splice" |
+
+Each right-hand version survives every future decision, and each still fails loudly on the fault
+the left-hand one was written for. The tell that you have written the left-hand kind: **the guard
+restates a number that also appears in your config.** A check and the thing it checks must not have
+the same author's intent baked into both, or it is a tautology with extra steps — see also
+"A cross-check must assert agreement, not track disagreement."
+
+⚠️ And two corollaries worth having in advance:
+
+- **Identity cases must be asserted as identities.** "Neutral" settings are where a sign-based guard
+  quietly has no opinion. A pan of 0 is not "roughly centred", it is an **exact** no-op, and it is
+  worth asserting to 0.00 — that one assertion is what proved the whole rewrite landed.
+- **The unprocessed material is not neutral, and that is not a fault.** The reference for "did my
+  control do what it claims" is the material's own measured state, never zero. A guard that demands
+  zero is demanding you *correct the source*, which is usually the opposite of what was asked.
+
+---
+
 ## A pass that doing nothing would also produce is not a pass
 
 The sharpest version of the trap above. Before believing a green result, ask: **if the
@@ -315,6 +357,16 @@ And the premise was backwards before either of those: it failed any fade that me
 the VO, reasoning that it would bury her. Measured, separation **improved** monotonically as the fade
 descended (+10.7 → +30.3 dB) — a bed dying away under the end of a line *exposes* a voice. **Assert
 the thing you fear (proximity while she is speaking), not a proxy for it (overlap).**
+
+⚠️ **A PER-SECTION MEASUREMENT NEEDS A PER-SECTION REFERENCE, and this one recurs.** Two variants of
+it inside two days, the second written *immediately after* fixing the first — so treat it as an
+attractor rather than a slip. A balance check compared each section of a mix against **one
+whole-programme** figure of +1.38 dB. But the sections came from two different source recordings with
+genuinely different balances (−1.32 dB and +1.51 dB), so the pooled number was dominated by whichever
+section was loudest and was the wrong reference for either. It reported a 2.70 dB error that did not
+exist. **A section average is also the wrong statistic for anything deliberately quiet inside that
+section** — a music-under-dialogue margin averaged over a section is dragged down by the pauses where
+the music is *meant* to be exposed; measure it only on the blocks where the voice is actually present.
 
 ⚠️ **And a crashed build is not distinguishable from a build that reported a problem** if you grep
 for both patterns and count — both give 1. That cost a round of reading a *stale* report and

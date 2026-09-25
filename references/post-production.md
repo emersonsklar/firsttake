@@ -117,6 +117,52 @@ Measured on one programme: every disagreement above 30 ms was "I" or "I'm", and 
 correctly detected. **Caption, and cut, the voice rather than the breath**, and report the two
 classes separately: averaged together they turned a 19 ms instrument into a 70 ms one.
 
+### 🔴 An energy step is not a word, and agreeing with the recogniser is not corroboration
+
+The energy check above needs three gates, or it confidently returns the wrong event. Measured on
+one interview while cutting a social short:
+
+The "nearest ≥12 dB onset" to a hint came back **23 dB over floor, stable across every threshold
+tried, and agreeing with the recogniser to 0.4 ms.** It was a **20 ms lip click** followed by an
+inhale; the word began **380 ms later**. The agreement was not independent confirmation — the
+recogniser had locked onto the same click. **Two methods agreeing is only evidence when they
+cannot fail the same way.**
+
+1. **Require voicing AFTER the onset, not at it** — ≥40% of the following 150 ms voiced. That
+   still admits a word starting with a voiceless fricative (whose energy step is ~100 ms late)
+   while rejecting clicks and breaths. A click is HF-dominant: first-difference energy fraction
+   **0.185**, against ≤0.01 for a vowel.
+2. **Require the onset be the RIGHT speaker.** With only a voicing gate the detector jumped to the
+   *other* speaker's preceding question bleeding onto this mic — voiced 86%, f0 134 Hz, real
+   speech, wrong person. **Pitch does not discriminate** (ranges overlap); relative level between
+   the two lavs does.
+3. **Separate speech from breath by margin over floor.** 6 dB over floor means "not silence"; a
+   word sits **18–22 dB** over that speaker's own floor while breaths, lip noise and chair creak
+   sit at **4–7 dB**. Detecting at 6 dB turned a breath 40 ms after the last word into "the next
+   speaker starts here" and cut the tail off every clip.
+
+⚠️ **BOTH LAVS HEAR BOTH PEOPLE, so attribution must be relative.** Each channel carries the other
+speaker about 10 dB down — measured +8.5 to +10 dB in favour of whoever is actually talking. A
+"who is speaking" test built on the absolute level of one channel produced a burst list for the
+host that was a near-copy of the guest's, because it was crosstalk, and turned the host's −41 dB
+breath into "clean silence ends here". Take the **difference** between channels, always.
+
+⚠️ **A CONSTANT IS NOT A MEASUREMENT.** An out-point finder returned exactly `+0.050 s` for two
+unrelated clips: that was its search cap, not the audio. **When two independent inputs give
+byte-identical answers, suspect the code before believing the result.**
+
+### Let the aligner and the energy detector argue, and read the disagreements
+
+They disagreed by **340 ms** at one boundary (the aligner was right — the detector had the lip
+click) and by **190 ms** at another (the energy measurement was right). Neither is authoritative.
+Run both; every disagreement is either a bug or a real acoustic event, and both are worth knowing.
+Keep the division of labour: **aligner for TIMES, measured energy for CUTS.**
+
+⚠️ An aligner normalises its tokens — lowercase, punctuation stripped — so captions built straight
+from its output read "know i almost went in the shower with my". Take **timings from the aligner
+and spelling from the transcript**, joined in order with the normalised forms asserted equal, so a
+silent misalignment cannot put one word's text on another word's clock.
+
 **Validate every in and out against an energy-onset check** — the first point where
 short-term energy rises ~12 dB above the preceding floor, measured at 10 ms resolution on
 the speaker's *own* channel. That is a different question from "where does the recogniser
@@ -630,6 +676,91 @@ Two separate references, because both are deep enough to mislead from memory:
 
 ---
 
+## Mix auditions for a client: derive them, and move one axis at a time
+
+A partner listens to a cut and asks for the balance changed. Expect two or three rounds, and build
+for that rather than remixing each time.
+
+### Derive the variants from the stems; do not re-run the audio build
+
+🔴 The audio build writes the master and the stems **at the paths the live NLE project references.**
+Re-running it with one value changed is the obvious route and it clobbers the shipping mix. (Worse,
+overwriting media under an open project has wedged a render here badly enough to need a force-quit.)
+
+Derive instead, and it is exact rather than approximate, provided you check the premise:
+
+* **Assert the stems still sum to the master, every run.** The build reports this once; that report
+  is about *the build that wrote it*, not about the files on disk now. Re-measured each time: they
+  summed to 1.25 of a 24-bit LSB, which is the master's own quantisation and nothing else. Keep the
+  stems **32-bit float** so their sum carries no per-file rounding.
+* **Assert the round trip.** Re-apply the *shipped* setting to the reverted stem and require it to
+  reproduce the file on disk — 0.0 LSB, an exact identity. If un-doing and re-doing is not an
+  identity, none of the other variants can be trusted, and that one check licenses the whole set.
+* Rebuild every curve from the **same config through the same frame→sample quantiser** the mix used,
+  and reuse the shipped breakpoint frames, so no new ramp is invented and nothing steps audibly.
+
+### 🔴 "Constant power" is a property of the control, not of the signal
+
+A constant-power pan law has `gl² + gr² = 2` at every position, so pan 0 is exactly identity and no
+position is intrinsically louder. But what it preserves is `L²gl² + R²gr²`, which equals `L² + R²`
+**only where the two channels carry equal power** — and real stereo material does not. Measured on
+one job: re-panning moved overall loudness by 0.008 LU (nothing) and the section-to-section **step by
+0.50 LU**. Small, but it is the number the creative decision was made on, so report it rather than
+assuming the law protects it.
+
+Two more from the same job:
+
+- **Inverting a pan is exact** — divide by the same `gl`/`gr` — for any pan strictly inside ±1. It is
+  not a mono fold-down and does not need to be.
+- **A constant-power pan barely changes the mono fold-down** (0.02 dB), so on a single-speaker phone
+  a pan change is *inaudible*. If a partner is auditioning one, say so: level is the cue that
+  survives mono, and a pan is always the second cue.
+
+### Translate the request into a parameter, and say which reading you took
+
+*"Balanced audio in the earbuds — equal gain in both ears"* is **pan = 0**. It is **not** "make the
+section measure 0.0 dB L−R", which would take *unequal* gain to cancel the recording's own ~1 dB
+imbalance — the opposite of what was asked. Those two readings produce different files. Name the one
+you implemented, and report the residual so nobody later mistakes the material's own character for
+an error. (The operator's ruling on this job: *"having the natural difference is great."*)
+
+### Move one axis at a time, and price the trade
+
+Two requests arrived together — louder earbuds *and* a different speaker pan. Varying both at once
+returns a verdict you cannot attribute, so the set held one while moving the other.
+
+And **name what a request costs before they choose.** "Make the quiet device louder" spends the
+level contrast that makes a handoff read: the measured step fell 9.06 → 7.26 → 5.26 LU as the quiet
+side came up. Raising the *loud* side instead buys it back — the version that shipped ended up
+**more** distinct than the original while still granting everything asked for. That option only
+appeared because the cost was on the table as a number.
+
+### The risk they name deserves its own measurement
+
+*"I'm sensitive to it overwhelming her speaking"* is answerable. Compare the music against **her
+voice alone**, over only the short blocks where the dialogue track is above its own speech
+threshold — 61 % of the section here. A section average is the wrong statistic: it is dragged down
+by the listening pauses where the music is *supposed* to be exposed.
+
+    shipped  −15.13 dB under her line
+    chosen   −10.97 dB under her line      warn above about −8 dB
+
+That turns "is this too much?" into a number they can hold against a version they already approved.
+
+### 🔴 An audition is not a mix
+
+The variants are trims on a finished stem, so any solve the real build runs — compensation,
+normalisation — has **not** re-run. When one is chosen, put its numbers in the config, re-run the
+build properly, and then **verify the shipping mix against the audition rather than assuming it
+matches**: here it landed within 0.3 LU and 0.3 dB, with the residual explained by the re-solved
+compensation and master trim. Keep the superseded values in the config so the previous deliverable
+stays regenerable.
+
+Shipping a re-weighted master instead is how a design ends up existing only in a file that nothing
+can regenerate.
+
+---
+
 ## What the reviewer gets
 
 A cut nobody can comment on precisely gets vague comments. Two documents make the
@@ -776,3 +907,88 @@ single easiest thing to get wrong — see `method.md`, "Verify the property you 
 actually claiming." The push-in shipped visibly broken because it was verified with
 four still frames, which confirmed the image got tighter. Tightening was never in
 doubt. Smoothness was, and a still frame cannot show motion.
+
+---
+
+## Cutting a vertical social short out of a long interview
+
+The format, measured off a reference the client supplied: **hook (the strongest soundbite, cold,
+pulled from inside the clip) → series card with the jingle → the whole clip → the official end
+card with the jingle**, captions burned in over both picture sections and never over a card. The
+hook repeats later in context, deliberately.
+
+### A static vertical crop of a seated subject may not exist
+
+A 9:16 window out of a 16:9 frame is **1215 px of 3840** at full height — scaled to 1080x1920 that
+is a 0.889 DOWNSCALE, so there is no upscaling and the softness question does not arise. The real
+constraint is movement: on one interview the subject's head swayed **588 px** and her head's full
+extent spanned **1051 px** of the 1215 px window, so no static window held her with margin for the
+whole clip.
+
+Do not abandon a centred frame for that. Set an **excursion budget** in pixels *and* seconds and
+take the crop nearest the compositional ideal that stays inside it. The budget has to be set by
+rendering the extremes and looking: at **48 px** the hair kisses the edge and reads as a tight
+portrait; at **152 px** the cheek is visibly cut. Also check what the subject is doing during the
+excursion — hers happened while she leaned forward and looked *down*, so the "leave room in front
+of the gaze" rule did not apply at that instant and the centred frame won on the merits.
+
+⚠️ **Measure head extent; never scale the face box.** A symmetric `face_cx ± 1.55·face_w/2`
+reported that 1051 px union as **1152 px** — an impossible framing — because the skin centre sat a
+consistent **77 px left** of the face-box centre. Measured skin width / face width was 1.47.
+
+⚠️ **A crop measured on one take does not transfer to another.** A CONFIRMED crop from the same
+shoot, same camera, same subject was measured on a *standing* take and was 700 px wrong for the
+*seated* interview. This is the conditional-durable trap: record the configuration the value
+depends on.
+
+### Reproducing a burned-in caption style: width finds the size, STROKE finds the weight
+
+Extends "width solves the size, ink height picks the family". Width could **not** separate Regular
+from Bold — −0.8% vs +1.4% against the reference. **Median horizontal stem run length** did,
+cleanly: reference **8.0 px**, Regular 8.0, Bold 12.0. Ink coverage agrees (0.334 / 0.313 / 0.446)
+but is weaker, because compression blur inflates it.
+
+**Infer the block's anchor from cues of different line counts.** Comparing 2-line and 3-line cues
+showed fixed line slots at a 92 px pitch with the block growing *upward* — bottom-anchored, with
+the last baseline constant. A single example cannot reveal that, and guessing it wrong moves every
+short cue.
+
+Two more things worth measuring rather than assuming: whether the plate is drawn **only with text**
+(on the reference it vanished entirely in the gaps between cues — check a caption-free frame), and
+the plate's opacity, which is best read off a **bright** background feature crossing its edge. Note
+that a plate that looks strong over a bright arm is nearly invisible over dark clothing at the same
+alpha; that is the subject, not an error.
+
+### Matching a partner lockup: a wide logotype cannot be height-matched to a compact one
+
+An **8.31:1** partner wordmark set to the reference partner's *height* made the lockup **85% of
+frame width**. Width-limit it into the reference's own lockup envelope instead. Prefer lifting a
+brand mark from your own official card and **downscaling** over upscaling a small asset — and
+cross-check the result against the reference's own copy of that mark, which should agree to a few
+pixels if they are the same artwork.
+
+### ffmpeg: two filters that report success and do nothing
+
+1. **A chain of per-cue image overlays.** With single-frame PNG inputs, an overlay that starts
+   *disabled* never reads its secondary input, so by the time its `enable` window arrives the image
+   has hit EOF with nothing buffered and the picture passes straight through. Only the cues live at
+   `n=0` rendered — **2 of 12** — with every frame count correct. `-loop 1` fixed those two, but
+   looped images default to **25 fps** and drifted against a 29.97 main, dropping two more. **Build
+   ONE full-length alpha track and composite once.**
+2. **`ebur128` prints its summary at INFO level**, so `-v error` suppresses exactly the lines being
+   parsed and every loudness figure comes back empty. Same family as `-map a:0` (invalid syntax,
+   also silent). A measurement function must **fail loudly when it parses nothing** rather than
+   returning NaN — a report reading "true peak ?" shipped once for this reason.
+
+Also: **stream-copy-concatenated ProRes carries discontinuous timestamps.** Feeding that into a
+filter graph made the encoder drop frames — 1037, then 1032, of 1043 — while both inputs verified
+at exactly 1043, and `ffprobe -count_frames` and a raw decode disagreed with each other about the
+result's length. That disagreement is the signature. Force `-fps_mode cfr` on the output.
+
+### Resolve cannot start on a locked Mac
+
+`scriptapp("Resolve")` **blocks forever** — no timeout, no error — and it *launches* Resolve rather
+than attaching to it, so on a locked machine both processes sit at 0% CPU indefinitely. `pgrep`
+matching "Resolve" is not evidence it was already running: compare its elapsed time against your
+own process. `screencapture` on a locked Mac returns only the desktop picture, which is how to
+confirm. No script can work around it.
