@@ -2,6 +2,12 @@
 
 Standalone. Useful with or without Claude.
 
+The post tools (from `sync_cameras.py` down, except `scrub_check.py`) need an active license —
+see `license_check.py`. Offload, QC, fixtures, day sheets and the on-set LUT never do, every
+`--selftest` is exempt, and `nle_handover.py --verify` is free so a receiver never needs one.
+Friends and collaborators with read access to this private repo need nothing: the first post
+tool they run confirms that access with GitHub and records a friend license.
+
 | | |
 |---|---|
 | `shootcheck.py` | technical QC for footage and audio |
@@ -21,6 +27,7 @@ Standalone. Useful with or without Claude.
 | `premiere_bridge.py` | drive Premiere Pro from Python through the UXP panel in `premiere/uxp/` — **`--probe` first** |
 | `nle_handover.py` | pack a cut for someone using the other NLE, and let them verify it arrived whole |
 | `scrub_check.py` | refuse to publish credentials or client-identifying material |
+| `license_check.py` | activate a license, start a project, and the gate the post tools call — **never** blocks offload or QC |
 
 ## Run the harnesses after any edit
 
@@ -42,6 +49,7 @@ python3 nle_ir.py --selftest
 python3 premiere_bridge.py --selftest
 python3 nle_handover.py --selftest
 python3 scrub_check.py --selftest
+python3 license_check.py --selftest
 ```
 
 The three NLE harnesses need neither application installed. `nle_ir` asserts that both backends'

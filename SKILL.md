@@ -60,9 +60,16 @@ ISO was two stops off the assumed value. Measured on the body beats printed.
    settled and must not be re-litigated, and what was already corrected once.
 3. **Per shoot, make a folder** — `shoots/<YYYY-MM-DD>-<client>/` — and keep
    everything shoot-specific inside it. Copy the templates from
-   `references/templates/`.
+   `references/templates/`. Then run `scripts/license_check.py start-project
+   <that folder>` once (step 5 explains why).
 4. **Ask only the questions that gate real work:** seated or standing, session
    length, crew or solo, what the post house wants, room facts.
+5. **The post tools need an active license; nothing that protects footage does.**
+   Run `scripts/license_check.py status` before post work. If it reports a problem,
+   relay its message in plain words — it always says what to do next — and carry
+   on with anything that doesn't need a license. **Never** hold up an offload, a
+   QC pass or a card verification over licensing, and never edit or bypass the
+   check; if it is wrong, the user emails the address it prints.
 
 ---
 

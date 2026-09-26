@@ -124,6 +124,14 @@ ALLOW_VALUES = [
                      "the application, not an account id. It is asserted against the running "
                      "app in premiere_bridge/probe rather than trusted, so it has to appear "
                      "in the source."),
+    ("sklarstad@gmail.com", "the licensor's published support address, not a client or a "
+                            "person's private inbox. license_check.py prints it in every refusal "
+                            "so a buyer always knows where to go; it is on the storefront and in "
+                            "the EULA too."),
+    ("git@github.com", "the SSH URL user in `git@github.com:owner/repo.git`, not an email "
+                       "address — it is nobody's inbox and identifies no person. The same string "
+                       "appears in every SSH clone URL on the platform, and code that tries an "
+                       "SSH remote cannot avoid writing it."),
 ]
 
 
