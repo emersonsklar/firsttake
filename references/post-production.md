@@ -932,6 +932,16 @@ portrait; at **152 px** the cheek is visibly cut. Also check what the subject is
 excursion — hers happened while she leaned forward and looked *down*, so the "leave room in front
 of the gaze" rule did not apply at that instant and the centred frame won on the merits.
 
+⚠️ **PROBE DENSITY MUST SCALE WITH THE SPAN, or the measurement lies.** A fixed probe COUNT
+gives a different answer on a different clip length, silently. A crop chosen from 92 probes across
+a 23 s clip was reused when that clip was extended to 62 s — the same 92 probes then being one
+every 0.68 s. It reported an excursion of **22 px**; at 4 probes/second the real envelope appears
+and the correct window is 20 px away, because the sparse pass had **missed her furthest lean
+entirely**. The sparse answer would have clipped her head by ~68 px. Use a RATE
+(`max(floor, span_s * per_second)`), and treat any excursion reported as "1 of N probes" as
+**unmeasured** rather than small — it is one sample. And **re-measure framing whenever the in/out
+points move**: a crop is a property of the span, not of the shot.
+
 ⚠️ **Measure head extent; never scale the face box.** A symmetric `face_cx ± 1.55·face_w/2`
 reported that 1051 px union as **1152 px** — an impossible framing — because the skin centre sat a
 consistent **77 px left** of the face-box centre. Measured skin width / face width was 1.47.
@@ -958,6 +968,76 @@ Two more things worth measuring rather than assuming: whether the plate is drawn
 the plate's opacity, which is best read off a **bright** background feature crossing its edge. Note
 that a plate that looks strong over a bright arm is nearly invisible over dark clothing at the same
 alpha; that is the subject, not an error.
+
+### The two faded overlays inside the body, and placing type by BASELINE
+
+The format carries more than the cards. Shortly after the series card clears, the speaker's
+**identity** fades in (name / role / company), fades out, and then a label for **the question
+being answered** fades in. Plain white left-aligned text, **no plate**, sitting below the caption
+band. Measured off a reference episode rather than designed:
+
+| beat | measured | |
+|---|---|---|
+| gap after the card | 0.96 s | "shortly after" |
+| identity | **3.92 s** | 0.20 s fade each way, the rest held |
+| gap | 1.32 s | |
+| question label | **4.80 s** | 0.16 s fade each way |
+
+⚠️ **The durations you are given are hints, exactly like the timecodes.** "Approx 4 seconds" was
+right; "roughly 6 seconds" was **4.80**. And once a client says *"we'll always want to do this"*,
+make the tool **exit when the text is missing** rather than building a short without it — that is
+the difference between a standing pattern and a thing someone has to remember.
+
+⚠️ **ASCENDER IS NOT CAP HEIGHT, so type must be placed by its baseline.** A name measured 84 px
+of ink where `HXM` measured 79: the `d` ascender is taller than a capital. And lines descend by
+different amounts — a comma, a `g`, and a word with neither are three different offsets — so a
+block placed by ink-top jitters line to line as the text changes. Ask the **font** where the
+baseline is (PIL's `anchor="ls"`), never the cropped bitmap's height.
+
+⚠️ **A bbox taken from a supersampled face is in supersampled pixels.** Where text is rendered at
+`size × SS` and downsampled, using a raw `textbbox` puts every line **SS times** as far from its
+baseline as intended. Divide at the point of use.
+
+**When your text needs a line the reference does not have, derive the pitch from a rule that
+reproduces the ones it does.** A long role title would not fit the reference's measure and wrapped
+to two lines, making a four-line block out of a three-line pattern. Expressing the layout as ink
+GAPS — one value after the name, one between body lines — reproduced both of the reference's
+observed baseline pitches exactly, which is what earns the right to use the same rule for the new
+one. And **bottom-anchor the block so it grows upward**: an extra line then cannot walk into the
+bottom of frame.
+
+Two judgement calls worth stating, because both went against the instinct:
+
+- **Do not abbreviate to fit until you have checked the abbreviation fits.** It did not — so
+  wrapping kept the information at no cost. "The same wording as the long-form video" is usually
+  the client's actual requirement.
+- **A template's own inconsistency is a measurement.** The reference's two overlays sit at left
+  insets 47 px apart. They are never on screen together, so it is invisible; reproduce it rather
+  than tidying it into something the house does not actually do.
+
+**Assert the overlay is ABSENT where it should be, not only present where it should be.** The gap
+between two elements is exactly where a fade that never reaches zero, or a one-frame overlap,
+becomes visible — and a presence-only check passes on both faults.
+
+⚠️ **VALIDATE A DETECTION FLOOR ON YOUR OWN FOOTAGE BEFORE TRUSTING IT.** The white-ink coverage
+threshold that cleanly separated three elements on the reference had to be re-checked against our
+own material, where the background and wardrobe differ. Across every frame of a render with no
+overlays the band peaked at **0.00103** against a **0.0015** floor — a 1.46× margin, thin — while
+an overlay reads **0.08–0.10**, a 65–100× separation. Know which of the two margins is the tight
+one before quoting either.
+
+⚠️ **Check for a scrim, and record its ABSENCE as a finding.** There is no gradient behind these
+overlays on the reference — the bottom band's luma is flat on overlay-free frames — so plain white
+text is the treatment. It was legible here only because the guest wore black against a mid
+background. On a light shirt against a light wall this needs revisiting, which makes it a
+**wardrobe and lighting** note as much as a graphics one.
+
+**Reuse the one alpha-track mechanism, and express the fades as discrete per-frame alpha steps.**
+A second builder for "but this one fades" would be a second thing that can be one frame wrong
+without saying so. The proven concat-with-explicit-durations path takes each fade frame as a
+one-frame entry unchanged. Put them on their **own track** rather than compositing into the
+caption track when the caption artefact is already in an approved deliverable — they never share
+a row of pixels, and two artefacts verified independently stay independently verifiable.
 
 ### Matching a partner lockup: a wide logotype cannot be height-matched to a compact one
 
@@ -992,3 +1072,184 @@ than attaching to it, so on a locked machine both processes sit at 0% CPU indefi
 matching "Resolve" is not evidence it was already running: compare its elapsed time against your
 own process. `screencapture` on a locked Mac returns only the desktop picture, which is how to
 confirm. No script can work around it.
+
+---
+
+## Deliverables: versions, sidecars, and how many copies to keep
+
+### Subtitles must never lag the picture — and regenerating IS the check
+
+A render and its subtitle sidecar must carry the same version. When they drift, a sidecar labelled
+for a different cut is indistinguishable from one that is actually wrong, and someone eventually
+hands out the pair. On one interview the picture reached v27 while the SRT still said v25.
+
+**Do not reason about whether the timings moved — regenerate and diff.** A transcript build is
+cheap and deterministic, so build it at the new version and compare against the previous file:
+
+- **identical bytes** → no cue moved; you have effectively just relabelled;
+- **different bytes** → regeneration was required anyway.
+
+Either way the correct file lands and no judgement is needed.
+
+Knowing the mechanism helps you *predict* the answer but must not replace the diff. A transcript
+generated from word timings plus programme structure does not read the multicam/angle plan — so
+changing which ANGLE is on screen, or swapping graphics artwork, **cannot** move a cue. Only a
+programme-structure or word-timing change can. Confirmed on that job: the regenerated v27 came out
+byte-identical to v25.
+
+**Gate it at the render**, which is the moment a version becomes something a person watches: fail
+the render's own checks when no subtitle file exists for the version being rendered.
+
+### Find "what hasn't been rendered yet" with the verifier, not with memory or mtimes
+
+Asked to include "the outstanding changes", the reliable answer came from running the structural
+verifier against the last build. It reported exactly one failure: a graphics clip whose **content
+hash** no longer matched its regenerated source art, because the graphics cache saw no reason to
+re-render it. A `--rebuild-graphics` flag was the fix.
+
+⚠️ **mtimes lie here.** A data file was timestamped 7 minutes NEWER than the build record, which
+reads as "the edit changed after the build". The verifier's clip-by-clip comparison against that
+same data passed and every seam was covered, so the timestamp was noise — a backup write or a
+no-op save moves it. **A content hash is signal; a modification time is not.**
+
+### Keep ONE encode per deliverable, and delete the superseded ones in the same breath
+
+Four bitrates of the same cut accumulated on one job — upload master, two review sizes, and a
+small transport copy for a chat client — and every later edit multiplied the stale ones. They are
+not harmless clutter: **each is a wrong answer sitting in a shared folder, ready to be published.**
+After any revision, remove the superseded copies as part of the same task and say what was removed.
+Regenerable intermediates (per-segment renders, concatenated scratch) should not outlive the build
+that produced them.
+
+When a transport limit forces a smaller file, render it **from the NLE at a lower bitrate** rather
+than transcoding the deliverable, so the picture stays NLE-native — and put the bitrate in the
+filename so two encodes of one cut can never be confused or overwrite each other.
+
+---
+
+## Loudness: the programme can be on target and still have a word that jumps
+
+Every figure below was measured on a 15-minute two-person interview whose integrated loudness,
+true peak, LRA and per-turn levelling were all correct. The operator still flagged a single
+word. Both things were true at once, and that is the point.
+
+### Per-turn levelling is the right tool and it cannot see a phrase
+
+Levelling one static trim per speaking turn, referenced to that speaker's own median turn,
+worked: delivered turn-to-turn spread was **1.4 LU p5–p95 for the host and 0.8 LU for the
+guest**, with no turn more than +1.3/−0.6 LU out. The flagged word's own turn measured **+0.6
+LU**. It is correct at turn scale.
+
+Inside a turn, nothing was looking. Measure **momentary (400 ms, K-weighted) loudness per
+word against the distribution of that speaker's own words** and the picture changes: the
+flagged phrase was **+2.7 LU** over his median word and the loudest word in the first 45
+seconds. Grouping every word ≥2.5 LU over into phrases found **twelve at +4 LU or more, every
+one of them the host**, seven of them question phrases — he lifts on question intonation. The
+guest's loudest was +3.9. That asymmetry is invisible in any per-turn statistic.
+
+⚠️ **K-WEIGHT IT, DON'T USE RMS.** Plain RMS called the flagged phrase unremarkable. K-weighting
+is the curve the delivery target is specified in and the one that corresponds to what a
+listener judges. Mixing the two metrics in one argument is how you "prove" a real complaint wrong.
+
+⚠️ **CHECK YOUR OWN LOUDNESS MATHS AGAINST A SECOND IMPLEMENTATION BEFORE USING IT.** Hand-written
+K-weighting with one mistyped coefficient reads plausibly and is wrong everywhere. Reconcile
+against `ffmpeg`'s `ebur128` on the same file and refuse to continue if they differ by more than
+about 0.5 LU.
+
+### 🔴 A pre-limiter trim on a phrase that is pinned at the ceiling barely changes its loudness
+
+This is the expensive one. Thirteen phrase trims of **1.75–4.00 dB**, applied where a dialogue
+editor would put them — before the limiter — delivered between **0.00 and 2.27 dB**, a median of
+0.4 dB. Two delivered nothing measurable at all.
+
+The cause: every one of those phrases peaked within 2 dB of the ceiling, so trimming ahead of
+the limiter mostly **stops the limiter reducing** instead of making the phrase quieter. It is a
+fixed point — re-measure, re-propose, get the same trim and the same non-result.
+
+Keep the pre-limiter trim anyway, because it buys something gain after the limiter cannot:
+whole-programme crest **13.50 → 13.82 dB** and limiter engagement **23.79% → 21.68%** of samples.
+Then apply the **remainder** (asked minus delivered, measured) *after* the limiter. Post-limiter
+gain is exact and downward-only, so it converges in one pass and cannot create a peak.
+
+Fold that remainder into the **limiter's own gain curve** rather than applying it per stem: that
+curve is already applied identically to every stem and to the master, which is what makes the
+stems sum to the master exactly, and a second application point is a second place for that
+invariant to break.
+
+⚠️ **Cap, don't flatten.** A question naturally lifts. Bringing phrases under a cap (+2.5 LU over
+the speaker's median here) is levelling; driving them all to the median is the compression this
+chain deliberately removed, and it cost 2.4 dB of crest when a process did it.
+
+⚠️ **Two references, because one cannot explain both complaints.** How far a phrase sits over the
+speaker's median *across the programme* explains the systematically hot ones. How far it sits over
+the median of that speaker's words *in the previous ten seconds* explains the one that only stands
+out locally — at +2.7 LU globally it is unremarkable, and a global-only rule would have trimmed it
+0.25 dB and not fixed what was actually heard.
+
+⚠️ **"Words peaking over −2 dBFS" is not comparable across builds** whose limiter threshold moved.
+It read 24% then 48% and looked like a regression while limiting had actually gone *down* — the
+threshold had moved past the fixed measuring line.
+
+---
+
+## Verify a dialogue cut by TRANSCRIBING what it produces
+
+Removing a few words from a sentence looks like a timing problem and is really a
+*which-word-is-this* problem. Three instruments disagreed on one 1.5 s stretch:
+
+| | "during" onset | "especially" onset |
+|---|---|---|
+| recogniser | 1599.840 | 1601.280 |
+| forced aligner | 1600.420 | **1601.090** |
+| measured / verified | **1600.42** | **1601.39** |
+
+An **energy envelope** tells you where energy is, not which word owns it — reading it cost a cut
+that left a whole word ("time") audible. A **forced aligner** tells you where a word is and is
+confidently wrong at exactly the hard places — trusting its 1601.090 would have sliced 210 ms off
+the front of "especially". Neither error announced itself.
+
+**What settled it was running ASR over the delivered audio from each candidate boundary.** From
+the chosen one it reads "especially as you start thinking about", clean, nothing before it. That
+answers the only question that matters: what does a listener hear. Do that before rendering, not
+after; each wrong attempt here cost a full audio rebuild.
+
+Then pin the corrected boundaries in a small MEASURED table applied **after** any alignment pass,
+so a measurement outranks both the recogniser and the aligner.
+
+### Forced alignment can introduce overlapping subtitle cues
+
+Re-timing to the aligner is right — it moved **82% of word onsets by more than a frame** (median
++80 ms) on this shoot. But at speaker changes it correctly places the incoming speaker's first
+word *before* the outgoing speaker's last word ends, because they really do talk over each other.
+The words overlap; **an SRT must not**, or most players show two captions at once.
+
+Seven cue ends needed pulling back on a 178-cue programme. Clamp the earlier cue's OUT time to the
+later cue's IN time, never touch the text, and assert zero overlaps afterwards. Nothing else
+catches this: the render was correct, the transcript read correctly, frame counts and loudness all
+passed. Only a sidecar-specific check found it.
+
+---
+
+## A stale DERIVED cache of absolute frame numbers
+
+A programme module refused to run when the *source* file stated music positions in absolute frames
+that no longer fitted a shortened programme — a good guard, and it fired. It did not check the
+**derived** cache built from those numbers, which was three cuts stale. The build then reported "no
+problems" and rendered **33 frames too long**; only the render verifier caught it.
+
+**Anything that caches absolute frame numbers needs the same guard as the file it came from.**
+Prefer caching the rule and deriving the frames, and where a cache must hold absolute positions,
+validate it against the current programme length before use.
+
+---
+
+## Identify which offload folder is which source by content, not by name
+
+Rebuilding audio needed lavalier files that had been cleared off the internal disk and were only
+on the archive drive, in folders named after the people. Trusting those names would have been a
+coin flip on a swap that rebuilds the entire mix wrong, with only a seam correlation downstream
+to catch it.
+
+Confirm it twice and cheaply: **hash a file that still exists in both places** (one surviving copy
+was byte-identical to the archive's, which named the folder), and **check every duration against
+the sync manifest**. Both took seconds and neither depends on a label somebody typed.
