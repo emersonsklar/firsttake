@@ -10,7 +10,7 @@ cuts and pull clips — assembled by script, with every number in it measured.
 
 <sub>
 <code>python3</code> · <code>ffmpeg</code> · <code>numpy</code> &nbsp;•&nbsp;
-Apache-2.0 &nbsp;•&nbsp; the measurement tools work with or without Claude
+the measurement tools work with or without Claude
 </sub>
 
 </div>
