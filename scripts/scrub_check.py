@@ -105,7 +105,12 @@ ALLOW = [
                         "is never published"),
     ("NOTICE", "the author's own name in his own copyright notice is intended "
                "publication, not a leak"),
-    ("LICENSE", "verbatim Apache-2.0 text; not ours to edit"),
+    # ⚠️ The reason here USED to be "verbatim Apache-2.0 text; not ours to edit". The
+    # project relicensed to all-rights-reserved, which made that reason false and left the
+    # exemption standing on nothing -- an ALLOW entry outliving its justification is exactly
+    # how this list becomes a place real findings go to die. The author's own name in his own
+    # copyright line is still intended publication, which is the reason that actually holds.
+    ("LICENSE", "the author's own name in his own copyright line is intended publication"),
 ]
 
 
