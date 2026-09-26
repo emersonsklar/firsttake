@@ -351,3 +351,31 @@ order (a node's corrector runs before its LUT). Measured on five picture frames 
 mean |difference| **1.3 codes of 255**, luma correlation **r = 0.9996**, mean luma within
 **0.3%**. Keep shipping the NLE render, but a diff this tight is a real cross-check rather
 than a formality.
+
+---
+
+## `CreateProject` does not always make the new project current
+
+Measured 2026-09-25, Studio 21.1.0.17, with Resolve sitting on the **Project Manager** window.
+
+`CreateProject(name)` returned a valid project object and the project appeared in the list —
+while `GetCurrentProject()` still answered **"Untitled Project"**. Media then imported into the
+returned object perfectly happily: bins were created, clips resolved, frame counts and
+resolutions all read back correct. The first call to fail was `CreateEmptyTimeline()`, which
+returned **None** with no further information, several stages into the build.
+
+So the symptom appears nowhere near the cause, and everything between them looks healthy.
+
+```python
+proj = pm.CreateProject(name)          # object, and in the list
+if not pm.LoadProject(name):           # ⚠️ do this explicitly
+    sys.exit(...)
+cur = pm.GetCurrentProject()
+if cur is None or cur.GetName() != name:
+    sys.exit(...)                      # and assert it, or later stages act elsewhere
+proj = cur
+```
+
+The general shape of this one is the reusable part: **when a create call hands back a handle,
+that is not evidence the application switched to it.** Assert the application's own idea of
+what is current before doing anything that depends on it.
