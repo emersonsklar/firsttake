@@ -45,9 +45,11 @@ python3 speed_ramp.py --selftest
 python3 conform_graphic.py --selftest
 python3 build_subtitles.py --selftest
 python3 bake_cdl_into_lut.py --selftest
+python3 make_export_preset.py --selftest
 python3 nle_ir.py --selftest
 python3 premiere_bridge.py --selftest
 python3 nle_handover.py --selftest
+python3 build_day_sheets.py --selftest
 python3 scrub_check.py --selftest
 python3 license_check.py --selftest
 ```
@@ -102,12 +104,43 @@ python3 shootcheck.py --verify-mapping fixtures/good_tight.mov
 
 ## If you also keep a working copy elsewhere
 
-These files may exist twice — once here, once in a personal working folder. Two
-copies of an instruction is how a stale one survives a fix. Check before trusting
-either:
+Some of these tools exist **twice on purpose**: once here, in the shared skill, and once in a
+personal working folder that goes out on a shoot. That is a deliberate trade — the copy in your
+hand on set can be edited at 2am without touching anything shared — and it carries the obvious
+cost. **Two copies of an instruction is how a stale one survives a fix.**
+
+🔴 **The stale one is usually the working copy, and that is the one used on a shoot.** A real
+instance: `shootcheck.py`'s D-Log M black floor was corrected here from code 64 to 95 — the value
+is the shadow-crush threshold, so at 64 the check was blind on B-camera footage — and the working
+copy still had 64 afterwards. The fix landed in the shared tool and *not* in the one pointed at
+actual cards.
+
+There is a tool for this, and it is the answer rather than a `diff` loop:
 
 ```bash
-for f in shootcheck.py offload.py; do diff -q "$f" /path/to/working/copy/"$f"; done
+./sync_from_working.py ~/path/to/workingFolder            # report what diverged
+./sync_from_working.py ~/path/to/workingFolder --apply    # pull the working copy's changes in
 ```
 
-Pick one canonical home when you get the chance.
+It syncs **working → skill**, runs the fault-planting harnesses afterwards (a tool that silently
+stops detecting a fault is worse than no tool) and then the scrub check, and it lists the
+documentation that needs generalising by hand rather than pretending it can do that for you.
+
+⚠️ It does **not** push the other way. When a fix is made *here* — as the D-Log M one was — copy it
+out deliberately, and diff first so you can see you are propagating only that fix:
+
+```bash
+diff shootcheck.py ~/path/to/workingFolder/analyzer/shootcheck.py
+```
+
+To check every shared tool at once rather than the two someone happened to list:
+
+```bash
+for f in *.py; do
+  w=~/path/to/workingFolder/analyzer/"$f"
+  [ -f "$w" ] && { diff -q "$f" "$w" >/dev/null || echo "DIFFERS: $f"; }
+done
+```
+
+One canonical home is still the right end state. Until then, the rule that keeps this safe is that
+**a divergence must be loud** — which is what `sync_from_working.py` is for.

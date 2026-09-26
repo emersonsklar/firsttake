@@ -1,19 +1,26 @@
 #!/usr/bin/env python3
 """
-build_day_sheets — render 09-DAY-SHEETS.html to day-sheets.pdf, and check it.
+build_day_sheets — render a shoot's day-sheet HTML to a PDF, and check the PDF.
 
 Why this exists: day-sheets.pdf had no generator. It was printed by hand, so every
 edit to the HTML silently left the page actually carried into a client site stale.
 That is the same failure mode KIT.md warns about, in its worst form -- the paper in
 your hand disagreeing with the source of truth, with nothing to catch it.
 
-    ./build_day_sheets.py            # render + verify
-    ./build_day_sheets.py --check    # verify only; non-zero if the PDF is stale
+A day sheet belongs to ONE SHOOT, so it lives in that shoot's folder and this has to be pointed
+at it. The PDF is written beside the source, never into this skill.
+
+    cd <shoot folder> && /path/to/build_day_sheets.py      # finds 09-DAY-SHEETS.html here
+    ./build_day_sheets.py --src <shoot>/09-DAY-SHEETS.html
+    FILM_SHOOT_DAY_SHEETS=<path> ./build_day_sheets.py
+    ./build_day_sheets.py --src <path> --check             # verify only
+    ./build_day_sheets.py --selftest
 
 Exit codes:
     0  PDF is current and passed its checks
     1  PDF is stale, or a check failed
-    2  cannot render (no Chrome) -- the HTML is still fine to print by hand
+    2  cannot render (no Chrome), or no day-sheet HTML was found -- in either case the
+       HTML itself is still fine to print by hand
 """
 
 from __future__ import annotations
@@ -25,8 +32,47 @@ import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-SRC = os.path.join(HERE, "09-DAY-SHEETS.html")
-PDF = os.path.join(HERE, "day-sheets.pdf")
+
+# 🔴 A DAY SHEET BELONGS TO ONE SHOOT, NOT TO THIS SKILL.
+#
+# These used to be `os.path.join(HERE, ...)` — a filename from one operator's working folder, hard
+# coded inside the skill. Two things followed, and both only show up for someone who did not write
+# it: in a fresh checkout the input can never exist, so the tool is unrunnable and the first
+# tutorial that mentions it dead-ends; and when it DID run it wrote a specific shoot's PDF into the
+# skill checkout, which is the durable layer holding a per-shoot artefact.
+#
+# So the source is now a required argument, discovered in this order, and the PDF lands beside it.
+SRC = None          # set by resolve_src()
+PDF = None
+
+DEFAULT_NAMES = ("09-DAY-SHEETS.html", "day-sheets.html", "DAY-SHEETS.html")
+
+
+def resolve_src(argv: list[str]) -> str | None:
+    """--src PATH, else $FILM_SHOOT_DAY_SHEETS, else a known name in the working directory."""
+    for i, a in enumerate(argv):
+        if a == "--src" and i + 1 < len(argv):
+            return os.path.abspath(argv[i + 1])
+        if a.startswith("--src="):
+            return os.path.abspath(a.split("=", 1)[1])
+    env = os.environ.get("FILM_SHOOT_DAY_SHEETS")
+    if env:
+        return os.path.abspath(env)
+    for name in DEFAULT_NAMES:
+        p = os.path.join(os.getcwd(), name)
+        if os.path.exists(p):
+            return p
+    return None
+
+
+def resolve_pdf(argv: list[str], src: str) -> str:
+    """--pdf PATH, else `day-sheets.pdf` beside the source — the name already in use."""
+    for i, a in enumerate(argv):
+        if a == "--pdf" and i + 1 < len(argv):
+            return os.path.abspath(argv[i + 1])
+        if a.startswith("--pdf="):
+            return os.path.abspath(a.split("=", 1)[1])
+    return os.path.join(os.path.dirname(src), "day-sheets.pdf")
 
 # Phrases that must survive into the PDF. Not decoration: each is an instruction
 # whose absence from the printed sheet has a real cost on the day. Checking the
@@ -70,7 +116,8 @@ def render() -> bool:
     chrome = find_chrome()
     if not chrome:
         print("  no Chrome/Chromium found — cannot render.")
-        print("  Open 09-DAY-SHEETS.html in a browser and print to day-sheets.pdf.")
+        print(f"  Open {os.path.basename(SRC)} in a browser and print to "
+              f"{os.path.basename(PDF)}.")
         return False
     subprocess.run([chrome, "--headless", "--disable-gpu", "--no-pdf-header-footer",
                     f"--print-to-pdf={PDF}", "file://" + SRC],
@@ -108,12 +155,13 @@ def check() -> int:
     fails = 0
 
     if not os.path.exists(PDF):
-        print("  FAIL  day-sheets.pdf does not exist")
+        print(f"  FAIL  {os.path.basename(PDF)} does not exist")
         return 1
 
     # Staleness is the whole reason for this script.
     if os.path.getmtime(PDF) < os.path.getmtime(SRC):
-        print("  FAIL  day-sheets.pdf is OLDER than 09-DAY-SHEETS.html — stale")
+        print(f"  FAIL  {os.path.basename(PDF)} is OLDER than "
+              f"{os.path.basename(SRC)} — stale")
         fails += 1
     else:
         print("  ok    PDF is newer than its source")
@@ -154,9 +202,33 @@ def check() -> int:
 
 
 def main(argv: list[str]) -> int:
-    if not os.path.exists(SRC):
-        print(f"FATAL: {SRC} not found")
+    global SRC, PDF
+    SRC = resolve_src(argv)
+
+    if SRC is None or not os.path.exists(SRC):
+        # Say what this file IS and where it lives, because the previous message named a path
+        # inside the skill that will never exist and left the reader with nowhere to go.
+        print("build_day_sheets: no day-sheet HTML to render.\n")
+        print("  A day sheet belongs to ONE SHOOT, so it lives in that shoot's folder — not in")
+        print("  this skill. Point the tool at it:\n")
+        print("      ./build_day_sheets.py --src /path/to/<shoot>/09-DAY-SHEETS.html")
+        print("      FILM_SHOOT_DAY_SHEETS=/path/to/sheet.html ./build_day_sheets.py")
+        print("      cd <shoot folder> && %s/build_day_sheets.py" % HERE)
+        print("\n  Run from a shoot folder it looks for: %s" % ", ".join(DEFAULT_NAMES))
+        if SRC is not None:
+            print("\n  (looked for %s and it is not there)" % SRC)
+        print("\n  references/templates/ has a starting point if you have not written one yet.")
         return 2
+
+    # Beside the source, and KEEPING THE ESTABLISHED NAME.
+    #
+    # ⚠️ I first named it after the source (`09-DAY-SHEETS.pdf`). That is tidier and it is wrong:
+    # a `day-sheets.pdf` already exists in shoot folders, so renaming the target orphans the real
+    # printed sheet and makes the tool report "does not exist" with a current PDF sitting beside it.
+    # Simplifying a path is not free when something is already on disk at the old one.
+    PDF = resolve_pdf(argv, SRC)
+    print(f"source: {SRC}")
+    print(f"pdf:    {PDF}\n")
 
     if "--check" not in argv:
         print("rendering:")
@@ -169,5 +241,76 @@ def main(argv: list[str]) -> int:
     return rc
 
 
+def selftest() -> int:
+    """Resolution and placement only — rendering needs Chrome and a real sheet."""
+    import tempfile
+    failures = []
+
+    def check(name, cond, detail=""):
+        if not cond:
+            failures.append(name)
+        print(f"  {'ok  ' if cond else 'FAIL'} {name}" + (f"   {detail}" if detail and not cond
+                                                          else ""))
+
+    with tempfile.TemporaryDirectory() as td:
+        sheet = os.path.join(td, "09-DAY-SHEETS.html")
+        open(sheet, "w").write("<html><body>clap · offload.py · VERIFIED · sidecars · "
+                               "archive · LIVE</body></html>")
+
+        check("--src is honoured", resolve_src(["--src", sheet]) == sheet)
+        check("--src=PATH form is honoured", resolve_src([f"--src={sheet}"]) == sheet)
+
+        env_before = os.environ.pop("FILM_SHOOT_DAY_SHEETS", None)
+        os.environ["FILM_SHOOT_DAY_SHEETS"] = sheet
+        check("the environment variable is honoured", resolve_src([]) == sheet)
+        os.environ.pop("FILM_SHOOT_DAY_SHEETS")
+
+        cwd = os.getcwd()
+        try:
+            os.chdir(td)
+            # ⚠️ realpath both sides: on macOS a temp dir is /var/... which is a symlink to
+            # /private/var/..., and os.getcwd() returns the resolved form. Comparing the raw
+            # strings fails on the symlink, not on the lookup, which is a test bug dressed as a
+            # code bug.
+            check("found by name in the working directory",
+                  os.path.realpath(resolve_src([]) or "") == os.path.realpath(sheet))
+        finally:
+            os.chdir(cwd)
+
+        # 🔴 The regression that motivated this: nothing may be looked for inside the skill.
+        check("does NOT look inside the skill", resolve_src([]) is None
+              or not str(resolve_src([])).startswith(HERE),
+              f"resolved to {resolve_src([])}")
+
+        # A missing sheet is exit 2 with an actionable message, not a claim of staleness.
+        import contextlib
+        import io
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            rc = main(["--check"])
+        msg = out.getvalue()
+        check("no sheet -> exit 2", rc == 2, f"got {rc}")
+        check("no sheet -> says it belongs to one shoot", "ONE SHOOT" in msg)
+        check("no sheet -> shows how to point at one", "--src" in msg)
+        check("no sheet -> does NOT claim the PDF is stale", "stale" not in msg.lower())
+
+        # The PDF lands beside the source, never in the skill.
+        with contextlib.redirect_stdout(io.StringIO()):
+            main(["--src", sheet, "--check"])
+        # `day-sheets.pdf`, NOT a name derived from the source — see resolve_pdf().
+        check("PDF keeps the established name, beside the source",
+              os.path.realpath(PDF) == os.path.realpath(os.path.join(td, "day-sheets.pdf")),
+              f"got {PDF}")
+        check("PDF path is NOT inside the skill", not str(PDF).startswith(HERE))
+
+        if env_before is not None:
+            os.environ["FILM_SHOOT_DAY_SHEETS"] = env_before
+
+    print(f"\n{'PASS' if not failures else 'FAIL'}: {len(failures)} failure(s)")
+    return 1 if failures else 0
+
+
 if __name__ == "__main__":
+    if "--selftest" in sys.argv[1:]:
+        sys.exit(selftest())
     sys.exit(main(sys.argv[1:]))

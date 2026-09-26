@@ -210,8 +210,10 @@ room width and depth, ceiling height, background-to-obstruction distance, outlet
 positions and orientation, door swing. **Measured seat height beats all of them.**
 
 ```bash
-python3 scripts/build_day_sheets.py          # render + verify
-python3 scripts/build_day_sheets.py --check  # verify only; non-zero if the PDF is stale
+# A day sheet belongs to ONE SHOOT, so point the tool at that shoot's HTML.
+cd <shoot folder> && python3 <skill>/scripts/build_day_sheets.py     # finds the sheet here
+python3 scripts/build_day_sheets.py --src <shoot>/09-DAY-SHEETS.html # or name it
+python3 scripts/build_day_sheets.py --src <path> --check             # verify only
 ```
 
 `build_day_sheets.py` exists because the PDF previously had no generator: it was printed by hand, so
