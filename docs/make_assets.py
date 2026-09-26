@@ -461,6 +461,127 @@ def pipeline_png(w=1180, h=560):
 
 
 # ==========================================================================
+# ==========================================================================
+# 6. square thumbnail — a viewfinder slate
+# ==========================================================================
+def thumb(size=1024):
+    """A square camera-OSD slate: wordmark, framing brackets, and real measured readouts.
+
+    🔴 RENDERED AT EACH SIZE, NEVER DOWNSCALED FROM ONE MASTER. A 1024px slate resampled to 32
+    becomes mud — 21px mono type does not survive a 32x reduction, it becomes grey noise that reads
+    as a smudge. So the detail level is a function of the size: below 256 the readouts come off,
+    below 96 the wordmark does, and at 32 only the record dot and its ring remain. Each size is
+    legible *as that size*, which is the whole job of a favicon.
+
+    Every number on it is one this repo measured and can point at, and each has to earn its place:
+      29.97 DF    the rate the whole pipeline is exact to (8475667200 ticks/frame), and the single
+                  most persistent source of quiet failure here
+      Δ 70 f      two clocks forty minutes apart — the drift a clap cannot see, which is the
+                  argument for measuring at all
+      -16.1 LUFS  the delivered integrated loudness of the long programme
+
+    ⚠️ Two numbers were CUT from the first version, because a thumbnail is not a changelog and a
+    number a stranger cannot read is decoration:
+      2228 f      inert on its own. It is only interesting if you already know it came out
+                  frame-identical in two applications, and the image cannot tell you that.
+      0.83 codes  the measurement I am proudest of and the wrong one for a thumbnail — "codes"
+                  means code values of 255 to a colourist and nothing to anybody else.
+    Dropping both left the bottom row with one number and the tick, which is also better balanced
+    than three items crowded across it.
+    """
+    S = size
+    px = S / 1024.0                      # one scale factor, so every size is the same design
+    img = Image.new("RGB", (S, S), BG)
+    d = ImageDraw.Draw(img)
+
+    # A faint grid, so the field reads as an overlay on a monitor rather than a flat swatch.
+    # ⚠️ Skipped below 192px: a 1px line every 12px is not texture at that scale, it is noise
+    # competing with the wordmark for the same pixels, and the wordmark has to win.
+    if S >= 192:
+        step = max(8, int(round(64 * px)))
+        for i in range(step, S, step):
+            d.line([(i, 0), (i, S)], fill=GRID, width=1)
+            d.line([(0, i), (S, i)], fill=GRID, width=1)
+
+    detail = "full" if S >= 256 else ("mid" if S >= 96 else "mark")
+
+    # ---- framing brackets: the four corners of a viewfinder safe area
+    m = int(round(84 * px))              # margin
+    L = int(round(120 * px))             # bracket leg length
+    t = max(2, int(round(7 * px)))       # bracket thickness
+    for (cx, cy, dx, dy) in ((m, m, 1, 1), (S - m, m, -1, 1),
+                             (m, S - m, 1, -1), (S - m, S - m, -1, -1)):
+        d.line([(cx, cy), (cx + dx * L, cy)], fill=DIMMER, width=t)
+        d.line([(cx, cy), (cx, cy + dy * L)], fill=DIMMER, width=t)
+
+    # ---- the record light. The one element that survives to 32px.
+    r = max(3, int(round(17 * px)))
+    if detail == "mark":
+        # centred, with a ring: at this size it is a mark, not a slate
+        cx = cy = S // 2
+        ring = int(round(S * 0.30))
+        d.ellipse([cx - ring, cy - ring, cx + ring, cy + ring],
+                  outline=ACCENT, width=max(2, int(round(S * 0.055))))
+        rr = int(round(S * 0.115))
+        d.ellipse([cx - rr, cy - rr, cx + rr, cy + rr], fill=ACCENT)
+        return vignette(img, 0.40)
+
+    dot_x = int(round(150 * px))
+    dot_y = int(round(188 * px))
+    d.ellipse([dot_x - r, dot_y - r, dot_x + r, dot_y + r], fill=ACCENT)
+
+    # ---- wordmark, FITTED to a target width rather than scaled by px.
+    #
+    # Scaling a fixed point size by `px` put the wordmark edge-to-edge at 128 — it touched the
+    # framing brackets and read as cramped, because the brackets' margin does not shrink at the
+    # same rate as a glyph's sidebearings. Solving for the size that hits a target fraction of the
+    # square keeps the same optical breathing room at every size.
+    target_w = S * (0.64 if detail == "full" else 0.76)
+    wm_size = int(round(104 * px))
+    for _ in range(24):
+        wm = bold(max(6, wm_size))
+        got = w_of(d, "FILM-SHOOT", wm)
+        if got <= target_w or wm_size <= 6:
+            break
+        wm_size = int(wm_size * target_w / got) if got else wm_size - 1
+    wm = bold(max(6, wm_size))
+
+    text(d, (S / 2, S * (0.455 if detail == "full" else 0.47)), "FILM-SHOOT", wm, INK, anchor="mm")
+
+    # the rule under it, as wide as the word plus a little air
+    ww = w_of(d, "FILM-SHOOT", wm)
+    ry = int(round(S * (0.525 if detail == "full" else 0.545)))
+    d.line([((S - ww) / 2, ry), ((S + ww) / 2, ry)], fill=ACCENT,
+           width=max(2, int(round(5 * px))))
+
+    if detail == "full":
+        # ---- top readout row: what the pipeline is exact to
+        f_small = mono(int(round(30 * px)))
+        text(d, (dot_x + int(round(38 * px)), dot_y), "29.97 DF", f_small, INK, anchor="lm")
+        text(d, (S - m - int(round(36 * px)), dot_y), "−16.1 LUFS", f_small, DIM, anchor="rm")
+
+        # ---- subline
+        text(d, (S / 2, S * 0.600), "plan it · shoot it · finish it",
+             sans(int(round(34 * px))), DIM, anchor="mm")
+
+        # ---- bottom readout row: the drift that motivates the whole thing, and the tick
+        by = S - m - int(round(36 * px))
+        text(d, (dot_x, by), "Δ 70 f / 40 min", f_small, DIM, anchor="lm")
+        # the teal tick: "measured and passing"
+        tx = S - m - int(round(40 * px))
+        tk = int(round(16 * px))
+        d.line([(tx - tk, by), (tx - tk // 3, by + tk * 3 // 4)], fill=GOOD,
+               width=max(2, int(round(5 * px))))
+        d.line([(tx - tk // 3, by + tk * 3 // 4), (tx + tk, by - tk)], fill=GOOD,
+               width=max(2, int(round(5 * px))))
+    # mid (96..255) carries NO small text at all. A 34px-equivalent line at 128 is four pixels
+    # tall: not small type, just a grey smear under the wordmark that makes the whole thing look
+    # unfinished. The wordmark, the rule and the record dot are the identity; at this size they are
+    # the whole of it.
+
+    return vignette(img, 0.45)
+
+
 def save_gif(frames, path, ms=70, colors=128):
     """Write a GIF small enough to sit in a README without making it crawl.
 
@@ -502,6 +623,11 @@ def main():
         ("loudness.png", lambda: loudness_png()),
         ("offload.png", lambda: offload_png()),
         ("pipeline.png", lambda: pipeline_png()),
+    ] + [
+        # Square thumbnail set. Each is DRAWN at its size, not resampled from the largest —
+        # see thumb()'s docstring for why that matters below about 256px.
+        ("thumb-%d.png" % n, (lambda n=n: thumb(n)))
+        for n in (1024, 512, 256, 128, 64, 32)
     ]
     for name, fn in jobs:
         p = os.path.join(HERE, name)
