@@ -73,7 +73,29 @@ INTERNAL_RULES: list[tuple[str, str]] = [
 # Paths never scanned. Binary media and generated artifacts.
 SKIP_DIRS = {".git", "__pycache__", "fixtures", "node_modules", ".venv"}
 SKIP_EXT = {".mov", ".mp4", ".lrf", ".wav", ".egg", ".pdf", ".png", ".jpg", ".jpeg",
-            ".mhl", ".pyc", ".zip", ".dng", ".braw", ".r3d"}
+            ".mhl", ".pyc", ".zip", ".dng", ".braw", ".r3d",
+            ".gif", ".webp", ".avif", ".mp3", ".aac", ".m4a", ".ico", ".ttf", ".otf"}
+
+
+def looks_binary(path: str, probe: int = 4096) -> bool:
+    """True if the file is not text, judged by content rather than by its name.
+
+    ⚠️ AN EXTENSION LIST ALWAYS MISSES THE NEXT FORMAT, and a scanner that cries wolf gets
+    ignored -- which is the only way this gate actually fails. Adding animated GIFs to the
+    README produced a confident "email address: 4@RQ.2" at byte 6150 of a GIF: random bytes
+    matching the address regex. `.gif` is in the list above now, and this catches whatever is
+    next without anyone having to think of it first.
+    """
+    try:
+        with open(path, "rb") as f:
+            chunk = f.read(probe)
+    except OSError:
+        return True
+    if b"\x00" in chunk:
+        return True
+    # a high proportion of bytes outside printable ASCII + common whitespace
+    printable = sum(1 for b in chunk if 32 <= b < 127 or b in (9, 10, 13))
+    return bool(chunk) and printable / len(chunk) < 0.85
 
 # Known-harmless matches. Each needs a reason, so this list cannot quietly become a
 # place to silence real findings.
@@ -110,6 +132,8 @@ def files_to_scan(staged: bool) -> list[str]:
         dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS]
         for fn in filenames:
             if os.path.splitext(fn)[1].lower() in SKIP_EXT:
+                continue
+            if looks_binary(os.path.join(dirpath, fn)):
                 continue
             out.append(os.path.join(dirpath, fn))
     return sorted(out)
