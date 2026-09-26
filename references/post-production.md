@@ -1253,3 +1253,58 @@ to catch it.
 Confirm it twice and cheaply: **hash a file that still exists in both places** (one surviving copy
 was byte-identical to the archive's, which named the folder), and **check every duration against
 the sync manifest**. Both took seconds and neither depends on a label somebody typed.
+
+---
+
+## A cut inside one angle needs the other angle over it
+
+Removing words from the middle of a sentence leaves a splice where the picture is continuous —
+same framing, same subject, one frame later in a different place. That reads as a glitch, not an
+edit. The fix is to change angle **exactly on the splice frame**, so the discontinuity arrives with
+a reason.
+
+The house pattern is measurable rather than invented. On one programme every existing source
+discontinuity already coincided with an angle change — 12.179 s, 27.194 s, 76.243 s, 854.153 s of
+interview time all landed on a shot boundary — so a new splice inherits the same rule, and a
+verifier can assert it: **every seam carries an angle change, and no two adjacent shots share an
+angle.**
+
+For length, take the precedent rather than a feeling: the shortest existing island in that
+programme was **3.50 s**, and it existed to cover exactly this. A cutaway to the listener while the
+speaker finishes a question is natural material, so the camouflage costs nothing dramatically.
+
+⚠️ **SNAP BOUNDARIES ONTO THE SEAM, DO NOT ARITHMETIC-SHIFT THEM.** Removing 33 frames means every
+later shot boundary moves by 1.101 s, and doing that by subtraction left one boundary **3 ms** off
+its seam — a one-frame same-angle join, which is the exact defect the rule exists to prevent. After
+any shift, snap each boundary within a tolerance onto the seam frame and assert the coincidence.
+
+---
+
+## One string, one home: shared copy must be read, not copied
+
+An episode's on-screen title belongs on the long-form card and on every short cut from it. Holding
+it in two files means holding two answers, and the divergence is silent — one gets edited, the other
+ships with last week's wording.
+
+So the derived artefact **reads** the canonical string from the project that owns it rather than
+keeping its own copy, and fails loudly if it is missing. The per-item field it replaced is kept as
+provenance and explicitly marked as no longer used, because deleting it would lose the record of
+what the card used to say.
+
+A useful side effect worth predicting so it does not look like a bug: once several cuts share one
+title, **their cards become byte-identical**. That is the invariant working, not a caching error.
+
+---
+
+## When a client asks for a "standing" pattern, make the tool refuse to ship without it
+
+*"We'll also want to always do this"* is a different instruction from *"add this here"*. The second
+is an edit; the first is a change to what a deliverable **is**.
+
+Implement it so the pattern cannot be omitted: the builder exits when the new required input is
+missing, rather than quietly producing the old shape. On one project that meant two already-built
+cuts could no longer be rebuilt until someone wrote their missing text — which is the correct
+outcome, and much better than discovering months later that half the set has the feature and half
+does not.
+
+A standing pattern that depends on somebody remembering is not standing.

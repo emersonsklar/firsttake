@@ -343,3 +343,82 @@ incoming voice by 0.14–0.23 s and land within 0.08–0.12 s of a gap between w
 there are hard cuts only — zero dissolves, zero B-roll, zero cutaways in 62 minutes.
 
 One episode is an example. Three is a grammar.
+
+---
+
+## Reproducing a template family across two rasters
+
+A series usually ships the same card in landscape and vertical, and the temptation is to treat the
+vertical one as a scaled version of the landscape one. Measure before assuming that.
+
+🔴 **MEASURED ON ONE SERIES: THE 9:16 CARD IS THE 16:9 CARD'S ELEMENTS AT IDENTICAL PIXEL SIZE,
+RE-CENTRED AND STACKED.** Not scaled — identical.
+
+| element | 9:16 | 16:9 |
+|---|---|---|
+| partner-programme wordmark | 330 × 36 | 330 × 36 |
+| series line 1 | 497 × 69 | 497 × 70 |
+| series line 2 | 258 × 72 | 258 × 72 |
+| headline lines | 770 / 615 wide, 88–89 ink | 770 / 615 wide, 88 ink |
+| logo lockup | 609 × 125 | 609 × 125 |
+
+So the vertical card is a re-arrangement, not a re-typesetting: the same type sizes, a different
+stack order, and one element (a horizontal rule) that the landscape version renders as a vertical
+one. Rebuilding it as "the landscape card at 56%" would have got every size wrong.
+
+### Check whether yours already matches before rebuilding it
+
+Asked to move a landscape card onto a new template, the honest first step is to measure the card
+you already have against the new reference. On this project it **already matched** — type size
+exact, pitch 120 both, lockup gap 112 against 113, left panel within 1 px, background already the
+identical flat colour. The only visible difference was that the reference's headline ran to three
+lines and ours to two, which is a property of the title's length, not of the template.
+
+The work saved was a whole rebuild. The work nearly wasted came from one bad comparison:
+
+⚠️ **NEVER COMPARE INK HEIGHTS OF DIFFERENT STRINGS WHEN FITTING A SIZE.** Our headline line
+measured 66 px of ink and the reference's 88, which read as "their type is 33% bigger" and was
+wrong: every one of their lines contains a descender (`g`, `p`) and ours did not. Same size, two
+different measurements of it. Fit a size by rendering **the reference's own strings** in your face
+and matching those, which settled it in one command — all three of their lines reproduced at
+exactly their ink heights with widths within 0.9%.
+
+### A background that looks like a gradient may be flat
+
+The reference cards read as a subtle vertical gradient on screen and measure **flat**:
+RGB(22, 29, 38), standard deviation 0.45 across the whole field — PNG dither, nothing more — and
+**one code** of drift from top to bottom, in both rasters. Sample a strip clear of ink at several
+heights before modelling a ramp that is not there.
+
+Worth checking your own artwork the same way: on this project the landscape card was already that
+exact flat colour, while the vertical one carried a real gradient, RGB(27,44,73) falling to
+(30,38,49), because its bed had been lifted from a reference **video** rather than a card.
+
+### 🔴 Two caps on one fit, and the one that binds is not the one you meant
+
+A logo fitted with both a maximum width and a maximum height obeys whichever binds first, and
+nothing tells you which did.
+
+Measured: a partner wordmark was fitted `max_w=430, max_h=73`. The height was the intended target,
+taken from the reference. The width cap had been copied from the reference's own partner mark —
+which was a compact logo — and this one is an 8.3:1 logotype, so **width bound first and the mark
+landed at 430 × 52, never reaching its 73 px target.** It shipped at 71% of the intended height
+across every deliverable, and the reviewer could see something was wrong without being able to name
+it.
+
+**State which cap you expect to bind, and assert it.** If the height is the target, the width cap
+exists only as a safety rail and should be set where it cannot engage — or the fit should fail loudly
+when it does.
+
+### Hand-set references give you a RANGE, not a formula
+
+Three cards from the same designer put the partner mark at **0.72, 0.80 and 0.84** of the
+programme mark's lockup height. That 15% spread is not noise to be averaged away — it is the
+designer's eye responding to each logo. Ours sat at 0.515, outside the range in all three cases,
+which is the finding; *"the correct ratio is 0.78"* would not have been.
+
+⚠️ And equal height is not equal weight. The same three partner marks had an ink density (lit
+pixels over bounding box) of 0.295–0.32; ours was **0.586**, nearly twice as dense, so at the same
+height it carries visibly more mass. That argues for the low end of the range. Ink *area* is not the
+invariant either — it spread 77% across the three references against height's 15%. Use the range to
+bound the answer and put the final call in front of a person.
