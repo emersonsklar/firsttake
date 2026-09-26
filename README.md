@@ -91,7 +91,32 @@ that share no clock to a signed-off master:
 Reproducing someone else's graphics template runs through the whole of it: measure the reference
 rather than guess it — **size from ink height, family from width, weight from stroke thickness.**
 
-📖 `references/post-production.md` · `references/resolve-api.md` · `references/grade-match.md`
+### Either NLE, and a cut that can change hands
+
+<div align="center">
+<sub><b>DaVinci Resolve</b> &nbsp;·&nbsp; <b>Premiere Pro</b> &nbsp;·&nbsp; one plan, two backends</sub>
+</div>
+
+The timeline is described once, in an application-neutral plan, and a backend turns it into one
+application's calls. That is what lets the person who shot it and the person who finishes it use
+different software — and what lets a cut be handed over as *the plan* rather than as a project file
+somebody else has to rebuild by hand.
+
+The part that makes it trustworthy is a **capability gate**: where an application cannot reproduce
+something exactly, the build **stops and names it**. It never approximates. The expensive failure
+here was never "unsupported" — it is a build that reports success having quietly dropped the ease on
+a fade or flattened an animated push-in to its first value. Both of those look like a finished
+timeline.
+
+Each application is better at something, and the differences are not small. Resolve can script
+colour; **Premiere cannot script colour at all** — neither an ASC CDL nor a LUT — so a graded
+handover has to arrive with the grade already in the media. Premiere can keyframe any parameter and
+write an exact 29.97; in Resolve the first needs a composition and the second needs a committed
+preset. The gate knows every one of those, and `nle_ir.py --compare` tells you what the far end will
+refuse *before* you offer it a handover.
+
+📖 `references/post-production.md` · `references/nle-backends.md` · `references/resolve-api.md` ·
+`references/premiere-uxp.md` · `references/grade-match.md`
 
 ---
 
@@ -178,6 +203,24 @@ and the references read like a post-mortem in places — because those are the e
 
 ---
 
+## Tutorials
+
+The references are written to be read when you need them. These are written to be read in order.
+
+| | |
+|---|---|
+| [Getting started](docs/tutorials/01-getting-started.md) | The mental model: what is durable, what belongs to one shoot, and why a confident unmeasured number is worse than none |
+| [Prep to a run sheet](docs/tutorials/02-prep-to-run-sheet.md) | Profiling the kit, scouting a room from photographs, and turning both into literal numbers |
+| [On the day](docs/tutorials/03-on-the-day.md) | Rigging to the plan, and what must be settled before "rolling" |
+| [QC and verified offload](docs/tutorials/04-qc-and-verified-offload.md) | Reading `shootcheck` without over- or under-reacting, then making a copy that is actually a backup |
+| [Post, end to end](docs/tutorials/05-post-end-to-end.md) | The eleven stages, in the order they actually run |
+| [Timeline by script](docs/tutorials/06-timeline-by-script.md) | One plan, either NLE, and a gate that refuses to approximate |
+| [**Quiet failures**](docs/tutorials/07-quiet-failures.md) | A field guide to twenty real faults that reported success. Start here if you are debugging |
+| [Working conversationally](docs/tutorials/08-working-conversationally.md) | How an operator drives this by chat — timecodes as search hints, and never handing back verification chores |
+| [Social cuts](docs/tutorials/09-social-cuts.md) | Deriving vertical shorts from inside an approved programme |
+
+---
+
 ## Install
 
 ```bash
@@ -206,6 +249,8 @@ Useful on their own, with or without Claude.
 | **`offload.py`** | Verified card offload to any number of destinations, with MHL/ASC MHL, JSON manifest and an HTML report. |
 | **`sync_cameras.py`** | Places recordings on a reference timeline with no shared timecode, and measures drift. |
 | **`diarize_by_channel.py`** | Per-word speaker attribution from a split-mode receiver. |
+| **`nle_ir.py`** | One timeline plan, two applications, and a gate that refuses to approximate. |
+| **`nle_handover.py`** | Pack a cut for whoever finishes it, and let them prove it arrived whole. |
 
 Plus `build_subtitles.py`, `speed_ramp.py`, `make_proxies.py`, `measure_white_balance.py`,
 `conform_graphic.py`, `make_log_view_lut.py`, `fit_clip_trims.py`, `build_day_sheets.py` and a

@@ -113,6 +113,19 @@ ALLOW = [
     ("LICENSE", "the author's own name in his own copyright line is intended publication"),
 ]
 
+# Known-harmless VALUES, matched on the snippet rather than on the path.
+#
+# ⚠️ Prefer this list to ALLOW whenever you can. Exempting a *file* silences every future
+# finding in it, which is how a gate stops working without anyone deciding that it should;
+# exempting a *value* leaves every other match in that same file still caught. The entries
+# below are published constants of third-party software, verifiable by anyone.
+ALLOW_VALUES = [
+    ("254016000000", "Premiere Pro's ticks-per-second time base — a published constant of "
+                     "the application, not an account id. It is asserted against the running "
+                     "app in premiere_bridge/probe rather than trusted, so it has to appear "
+                     "in the source."),
+]
+
 
 def denylist() -> tuple[list[str], str | None]:
     """Private terms, and where they came from (None = no list found)."""
@@ -169,6 +182,8 @@ def scan(paths: list[str], terms: list[str]) -> list[tuple[str, int, str, str]]:
                         m = rx.search(line)
                         if m:
                             snippet = m.group(0)
+                            if any(v == snippet for v, _why in ALLOW_VALUES):
+                                continue
                             if len(snippet) > 60:
                                 snippet = snippet[:57] + "..."
                             findings.append((rel, n, lbl, snippet))
@@ -177,12 +192,91 @@ def scan(paths: list[str], terms: list[str]) -> list[tuple[str, int, str, str]]:
     return findings
 
 
+def selftest() -> int:
+    """Plant content that must be caught and content that must not be, and assert both.
+
+    The point of the negative half is the ALLOW_VALUES exemption. An exemption is only safe if it
+    is NARROW, so the test that matters is not "the allowed value passes" — it is "a different
+    value of the same shape, in the same file, still fails."
+    """
+    import tempfile
+    failures: list[str] = []
+    tmp = tempfile.mkdtemp(prefix="scrub-selftest-")
+    try:
+        def scan_text(name: str, text: str, terms: list[str] | None = None):
+            p = os.path.join(tmp, name)
+            with open(p, "w", encoding="utf-8") as f:
+                f.write(text)
+            return scan([p], terms or [])
+
+        # --- must be caught
+        must_catch = [
+            ("aws.txt", "key = AKIAIOSFODNN7EXAMPLE\n", "an AWS-style access key id"),
+            ("acct.txt", "account 123456789012 is ours\n", "a 12-digit account id"),
+            ("host.txt", "see build.corp.example.com/x\n", "an internal corp hostname"),
+            ("mail.txt", "ping someone@somecompany.net\n", "an email address"),
+        ]
+        for name, text, what in must_catch:
+            if not scan_text(name, text):
+                failures.append(f"{what} was NOT caught")
+
+        # --- the private-term list must work, case-insensitively
+        if not scan_text("term.txt", "shot at AcmeCorp today\n", ["acmecorp"]):
+            failures.append("a private term was not caught case-insensitively")
+
+        # --- the allowed value must pass, and a NEIGHBOUR of the same shape must not
+        allowed_value = ALLOW_VALUES[0][0]
+        if scan_text("ticks_ok.txt", f"const TICKS = {allowed_value};\n"):
+            failures.append("the documented ALLOW_VALUES constant was still flagged")
+
+        neighbour = str(int(allowed_value) + 1)
+        found = scan_text("ticks_bad.txt",
+                          f"const TICKS = {allowed_value};\nconst OTHER = {neighbour};\n")
+        if not any(neighbour in snip for _r, _n, _l, snip in found):
+            failures.append("a DIFFERENT 12-digit number beside the allowed one was not caught — "
+                            "the exemption is too wide to be safe")
+
+        # --- a binary file must be skipped by content, not by extension
+        bin_path = os.path.join(tmp, "blob.unknownext")
+        with open(bin_path, "wb") as f:
+            f.write(b"\x89\x00\xff\xfe" * 64 + b"key=AKIAIOSFODNN7EXAMPLE")
+        if not looks_binary(bin_path):
+            failures.append("a file full of NUL and high bytes was not judged binary")
+
+        # --- but a plaintext file with the same secret must still be caught
+        if not scan_text("plain.txt", "key=AKIAIOSFODNN7EXAMPLE\n"):
+            failures.append("a plaintext secret was skipped")
+
+        # --- every ALLOW and ALLOW_VALUES entry must carry a reason
+        for frag, why in ALLOW:
+            if not why or not why.strip():
+                failures.append(f"ALLOW entry {frag!r} has no stated reason")
+        for val, why in ALLOW_VALUES:
+            if not why or not why.strip():
+                failures.append(f"ALLOW_VALUES entry {val!r} has no stated reason")
+    finally:
+        import shutil
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    if failures:
+        print(f"SELFTEST FAILED ({len(failures)})")
+        for f in failures:
+            print("  - " + f)
+        return 1
+    print("scrub_check selftest: all checks passed")
+    return 0
+
+
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(description="Refuse to publish sensitive content.")
     ap.add_argument("--staged", action="store_true",
                     help="scan only git-staged content")
     ap.add_argument("--list-rules", action="store_true")
+    ap.add_argument("--selftest", action="store_true")
     args = ap.parse_args(argv)
+
+    if args.selftest:
+        return selftest()
 
     if args.list_rules:
         for p, lbl in SECRET_RULES:
@@ -211,8 +305,9 @@ def main(argv: list[str]) -> int:
     for rel, n, lbl, snip in findings:
         print(f"  {rel}:{n}")
         print(f"      {lbl}: {snip}")
-    print("\n  Remove these, or add a documented entry to ALLOW if genuinely "
-          "harmless.")
+    print("\n  Remove these, or — if genuinely harmless — add a documented entry to")
+    print("  ALLOW_VALUES (exempts one VALUE anywhere; prefer this) or ALLOW (exempts a")
+    print("  whole FILE, which silences every future finding in it too).")
     print("  Note: deleting a secret in a later commit does NOT remove it from git")
     print("  history. If one was already pushed, rotate it.")
     return 1

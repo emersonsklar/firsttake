@@ -665,11 +665,16 @@ monotonically.
 
 ## Assembling the project, and grading it
 
-Two separate references, because both are deep enough to mislead from memory:
+Separate references, because each is deep enough to mislead from memory:
 
-- **`resolve-api.md`** — handing a post house an assembled Resolve project rather than
-  clips and a document. Read its playback-frame-rate section before anything else; that
-  one shipped broken.
+- **`nle-backends.md`** — **start here.** How one cut targets either DaVinci Resolve or
+  Premiere Pro: the shared plan, what each application can and cannot do, and handing a
+  job to someone using the other one. Everything above this section is NLE-neutral and
+  works whichever you have.
+- **`resolve-api.md`** — the Resolve dialect. Read its playback-frame-rate section before
+  anything else; that one shipped broken.
+- **`premiere-uxp.md`** — the Premiere dialect. Read its transaction and in/out sections
+  first; both differ from Resolve in ways that produce a plausible wrong timeline.
 - **`grade-match.md`** — making two cameras match, identifying what log format you
   actually recorded, and deriving framing from a reference cut instead of from a
   compositional rule.

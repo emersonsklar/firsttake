@@ -127,6 +127,37 @@ def main() -> int:
         check("verdict READY on the good pair", r["verdict"] == "READY",
               f"got {r['verdict']} / {r['counts']}")
 
+    # -------- the threshold that was wrong: a LOG-crushed, 709-legal floor --------
+    #
+    # 20% of the frame floored at code 70. That is crushed for S-Log3 and D-Log M (black at 95)
+    # and legal for Rec.709 (black at 64), so the SAME FILE must read differently per profile.
+    # Asserting the asymmetry is the point: a single-profile check would pass with either
+    # threshold, which is exactly how D-Log M sat at 64 with the crush fixtures green.
+    if os.path.exists(os.path.join(FIX, "crushed_log_floor.mp4")):
+        for prof, want_flagged in (("dlogm", True), ("slog3", True), ("unknown", False)):
+            rc = run_tool(["crushed_log_floor.mp4"], ["tight"], [prof])
+            lv = levels(rc, "crushed_log_floor.mp4")
+            mv = measured(rc, "crushed_log_floor.mp4", "video")
+            pct = mv.get("crush_pct_worst")
+            flagged = lv.get("shadow crush") in ("WARN", "FAIL")
+            check("crushed_log_floor @ %-7s : crush %s (%.1f%%)"
+                  % (prof, "FLAGGED" if want_flagged else "not flagged",
+                     pct if isinstance(pct, (int, float)) else -1),
+                  flagged == want_flagged,
+                  "shadow crush == %r, crush_pct_worst == %r; a floor at code 70 must register "
+                  "for a log profile (black at 95) and not for a Rec.709 one (black at 64)"
+                  % (lv.get("shadow crush"), pct))
+        # and the measured percentage must actually differ between the two interpretations
+        r_log = measured(run_tool(["crushed_log_floor.mp4"], ["tight"], ["dlogm"]),
+                         "crushed_log_floor.mp4", "video").get("crush_pct_worst")
+        r_709 = measured(run_tool(["crushed_log_floor.mp4"], ["tight"], ["unknown"]),
+                         "crushed_log_floor.mp4", "video").get("crush_pct_worst")
+        check("crushed_log_floor: dlogm sees more crush than Rec.709 does",
+              isinstance(r_log, (int, float)) and isinstance(r_709, (int, float))
+              and r_log > r_709 + 5.0,
+              "dlogm %r vs unknown %r — if these are equal the threshold is not being applied"
+              % (r_log, r_709))
+
     # ---------------- the expensive error: fps mismatch -----------------
     print("\nplanted fault: 29.97 tight vs TRUE 30.000 wide")
     r2 = run_tool(["good_tight.mp4", "bad_fps_wide.mp4"],

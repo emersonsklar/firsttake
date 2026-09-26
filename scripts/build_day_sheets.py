@@ -36,7 +36,12 @@ MUST_CONTAIN = [
     "offload.py",           # the offload tool, post-2026-09-07
     "VERIFIED",             # the exit condition that gates formatting anything
     "sidecars",             # deleting one breaks the ASC MHL chain
-    "receipt",              # format nothing until the post house confirms
+    # The retention condition, stated as the CONCEPT rather than one phrasing. This slot used to
+    # assert the literal word "receipt", which pinned the printed sheet to a superseded rule: a
+    # checklist corrected to "live AND archive verified" would have FAILED this gate. Assert what
+    # the instruction has to convey, and ban the old wording below.
+    "archive",              # ... is verified: one half of the retention condition
+    "LIVE",                 # ... and the deliverable is live: the other half
     "clap",                 # the only sync point between the two cameras
 ]
 
@@ -45,6 +50,10 @@ MUST_CONTAIN = [
 MUST_NOT_CONTAIN = [
     "Offload with Resolve",
     "Offload with DaVinci",
+    # The superseded retention rule. It is not false, it is INCOMPLETE -- a post house can confirm
+    # receipt and still come back weeks later for a reel nobody kept -- and an incomplete rule about
+    # formatting cards is followed with confidence.
+    "confirms receipt",
 ]
 
 

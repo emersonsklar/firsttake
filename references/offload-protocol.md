@@ -9,8 +9,17 @@ Tool: `scripts/offload.py`. Run `scripts/offload_selftest.py` after any edit to 
 
 ## Standing rules
 
-1. ⛔ **Never format a source card until the recipient confirms receipt.** Not "until
-   the copy finished" — until they say they have it.
+1. ⛔ **Cards stay until the deliverable is LIVE *and* the archive is verified.** Both
+   conditions, not either. Not "until the copy finished". Not "until someone said thanks".
+   Not even "until the recipient confirms receipt" — that was the wording here for a
+   while and it is necessary but **not sufficient**: a post house can hold the footage,
+   confirm it, and still come back three weeks later needing a reel nobody kept.
+
+   ⚠️ An earlier version of this file said only the receipt half, and
+   `scripts/build_day_sheets.py` **asserted the word "receipt"** appeared in every
+   generated day sheet — so a checklist corrected to the stricter rule would have failed
+   the build gate. That is this repo committing the error `method.md` warns about: *when a
+   premise changes, grep for the concept, not the phrasing you just edited.*
 2. **Never drag in Finder.** A drag gives you no record of what the bytes were when
    they left the card.
 3. **One verified copy is not a backup.** Card plus one copy is two copies, which is

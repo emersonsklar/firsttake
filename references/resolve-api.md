@@ -1,5 +1,10 @@
 # Assembling a project with the Resolve scripting API
 
+> **This is one of two dialects.** Read `nle-backends.md` first — it covers the shared plan both
+> backends build from, what each application can and cannot do, and handing a cut to someone using
+> the other one. `premiere-uxp.md` is the sibling of this file. Nothing here is required if you are
+> finishing in Premiere.
+
 You can hand a post house an **assembled** project rather than a folder of clips and a
 document describing what you wanted. Everything below was measured against DaVinci
 Resolve **Studio** — scripting is a Studio feature, the free version has no API — while

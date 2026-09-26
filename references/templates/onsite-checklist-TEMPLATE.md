@@ -181,7 +181,8 @@ Do not give them a camera to operate.
 
 ## Wrap and offload
 
-- [ ] ⛔ **Format nothing until the recipient confirms receipt.**
+- [ ] ⛔ **Format nothing until the deliverable is LIVE and the archive is VERIFIED.**
+      Both, not either. A receipt confirmation is necessary and not sufficient.
 - [ ] Offload with `scripts/offload.py`, `--ascmhl`. Must end **VERIFIED**.
       Never drag in Finder. See `offload-protocol.md`.
 - [ ] ⛔ **Never delete an offload's sidecars.**

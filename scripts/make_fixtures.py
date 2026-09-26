@@ -43,6 +43,7 @@ def ire_to_code(ire: float, depth: int) -> float:
 def make_frame(w: int, h: int, depth: int, *,
                base_ire: float, face_ire: float, noise: float,
                clip_frac: float = 0.0, crush_frac: float = 0.0,
+               crush_code: float | None = None,
                rng: np.random.Generator) -> np.ndarray:
     """
     Luma plane with a planted 'face' patch in the top-centre grid cell.
@@ -75,7 +76,16 @@ def make_frame(w: int, h: int, depth: int, *,
         cursor -= rows
     if crush_frac > 0:
         rows = max(1, int(round(h * crush_frac)))
-        y[cursor - rows:cursor, :] = 0.0
+        # `crush_code` plants the floor at a SPECIFIC 10-bit code instead of true black. That is
+        # what distinguishes a log-format crush threshold from a Rec.709 one: a floor at code 70 is
+        # crushed for S-Log3 / D-Log M (which define black at 95) and perfectly legal for Rec.709
+        # (which floors at 64). Planting 0.0 cannot tell those apart, which is why a wrong D-Log M
+        # threshold of 64 survived in shootcheck.py with the crush fixture passing.
+        # crush_code is a 10-bit code; the plane is normalised 0..1 and the analyser compares
+        # against `black_floor_code` expressed the same way, so divide by 1023 whatever the
+        # fixture's own bit depth is.
+        y[cursor - rows:cursor, :] = (0.0 if crush_code is None
+                                      else float(crush_code) / 1023.0)
 
     return np.clip(y, 0.0, 1.0)
 
@@ -284,6 +294,24 @@ def build(fast: bool) -> None:
          pix_fmt="yuv420p10le", bitrate="120M", seed=3, audio=a_one,
          w=W, h=H, depth=10, fps="30", nframes=n,
          frame_specs=lambda i: dict(base_ire=28.0, face_ire=56.0, noise=0.004))
+
+    # ---- BAD: a floor crushed FOR A LOG FORMAT but legal for Rec.709 ----
+    #
+    # 🔴 This fixture exists because a wrong threshold survived every other one. `shootcheck.py`
+    # had D-Log M's black floor at code 64 (the Rec.709 value) instead of 95, and the crush check
+    # compares `y <= black_floor_code` — so blacks crushed from 95 down to ~70 did not register.
+    # The existing crush fixture plants TRUE BLACK, which is below 64 and 95 alike and therefore
+    # cannot tell a right threshold from a wrong one.
+    #
+    # A floor at code 70 is the discriminating case: crushed for S-Log3 and D-Log M, legal for
+    # Rec.709. So `--profile dlogm` and `--profile slog3` must FLAG it and `--profile unknown`
+    # (Rec.709 floor) must NOT. That asymmetry is the assertion; see verify_fixtures.py.
+    print("  crushed_log_floor.mp4 (20% of frame floored at code 70 — log-crushed, 709-legal)")
+    emit("crushed_log_floor.mp4", subsample="422", encoder="libx264",
+         pix_fmt="yuv422p10le", bitrate="200M", seed=7, audio=a_two,
+         frame_specs=lambda i: dict(base_ire=30.0, face_ire=58.0, noise=0.004,
+                                    crush_frac=0.20, crush_code=70),
+         **common)
 
     # ---- BAD: 8-bit, clipped, crushed, wrong res, wrong fps, hot audio --
     print("  bad_everything.mp4 (8-bit, 1080p, 25fps, 6% clip, 15% crush, "

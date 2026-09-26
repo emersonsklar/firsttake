@@ -153,6 +153,12 @@ def bake(name, trim, input_lut, dst_dir, grid=GRID, resolve_dialect=True):
     failure with no reason on a non-ASCII byte — **a UTF-8 em-dash in a comment line made SetLUT
     return False on every clip.** ffmpeg's `lut3d` splits on arbitrary whitespace and ignores CR,
     so one file in this dialect feeds both, which is the point.
+
+    ⚠️ The flag is named after the application whose parser forced it, but the dialect is the
+    PORTABLE one, not a Resolve quirk: it is also what Adobe's `.cube` reader accepts, so leave it on
+    unless something specifically demands LF. "Strictest wins" is the rule — a file that satisfies
+    the fussiest parser satisfies the others, and one bake in one dialect means two pipelines cannot
+    diverge.
     ⚠️ Resolve also refuses any LUT outside its own library directory, and caches that library at
     load — copy the cube in and call `project.RefreshLUTList()`. Keep a space-free copy for
     ffmpeg, whose lut3d parser fails on spaces, and assert the two copies are byte-identical.

@@ -16,6 +16,10 @@ Standalone. Useful with or without Claude.
 | `speed_ramp.py` | speed a shot up with real motion blur to an exact output length; solves the highest ramp peak a source allows |
 | `conform_graphic.py` | vet and conform a supplied motion graphic — raster, VFR, and where the animation actually is |
 | `build_subtitles.py` | subtitles from forced-aligned words: programme-clock mapping, cue shaping to the delivery raster, and two cross-checks |
+| `bake_cdl_into_lut.py` | fold an ASC CDL into a vendor LUT so the grade survives an application that cannot script a CDL |
+| `nle_ir.py` | the NLE-neutral timeline plan: validate it, compare what each application can build, derive each one's crop parameters |
+| `premiere_bridge.py` | drive Premiere Pro from Python through the UXP panel in `premiere/uxp/` — **`--probe` first** |
+| `nle_handover.py` | pack a cut for someone using the other NLE, and let them verify it arrived whole |
 | `scrub_check.py` | refuse to publish credentials or client-identifying material |
 
 ## Run the harnesses after any edit
@@ -33,7 +37,19 @@ python3 fit_clip_trims.py --selftest
 python3 speed_ramp.py --selftest
 python3 conform_graphic.py --selftest
 python3 build_subtitles.py --selftest
+python3 bake_cdl_into_lut.py --selftest
+python3 nle_ir.py --selftest
+python3 premiere_bridge.py --selftest
+python3 nle_handover.py --selftest
+python3 scrub_check.py --selftest
 ```
+
+The three NLE harnesses need neither application installed. `nle_ir` asserts that both backends'
+crop maths agree on the same crop rectangle — two independent derivations of one intent, which is
+how a units bug in the vertical axis was caught within a minute of being written.
+`premiere_bridge` stands in a fake panel to exercise the transport, and asserts that *ok with
+warnings* is treated as a failed build. `nle_handover` plants a file that changes content while
+keeping its size, which is exactly what a re-rendered graphic looks like.
 
 The four post tools plant ground truth too, and two of them document a known weakness rather
 than hiding it:

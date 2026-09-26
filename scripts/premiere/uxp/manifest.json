@@ -1,0 +1,36 @@
+{
+  "id": "com.filmshoot.timeline",
+  "name": "film-shoot timeline",
+  "version": "0.1.0",
+  "main": "index.html",
+  "manifestVersion": 6,
+  "host": [
+    {
+      "app": "premierepro",
+      "minVersion": "26.0",
+      "dependencies": {
+        "dvaappsupport": "",
+        "dvascripting": "",
+        "dvauxpui": "",
+        "MZ.Scripting": ""
+      }
+    }
+  ],
+  "entrypoints": [
+    {
+      "id": "mainPanel",
+      "type": "panel",
+      "label": { "default": "film-shoot timeline" },
+      "minimumSize": { "width": 300, "height": 200 },
+      "preferredDockedSize": { "width": 380, "height": 420 },
+      "preferredFloatingSize": { "width": 460, "height": 520 }
+    }
+  ],
+  "featureFlags": {
+    "enableAlerts": true
+  },
+  "requiredPermissions": {
+    "localFileSystem": "fullAccess",
+    "allowCodeGenerationFromStrings": false
+  }
+}

@@ -172,7 +172,17 @@ PROFILES: dict[str, dict[str, Any]] = {
         "mid_grey_ire": 39.0,
         "white_ire": 76.0,
         "skin_ire": (50.0, 62.0),
-        "black_floor_code": 64 / 1023,
+        # 🔴 WAS 64/1023 -- the Rec.709 value, and byte-identical to the "unknown" default below
+        # with no comment, so it was an untouched copy rather than a decision. D-Log M floors at
+        # code 95, same as S-Log3: see references/grade-match.md ("D-Log M also sits at 95",
+        # identified three independent ways) and the kit changelog.
+        #
+        # This value is the CRUSH threshold, so 64 made the detector blind in exactly the band that
+        # matters: blacks crushed from 95 down to ~70 are crushed *for this format* and still above
+        # Rec.709 black, so `(y <= 64)` never fired. The existing fixture plants TRUE BLACK, which
+        # is below both numbers and therefore could not tell the two apart -- see
+        # `crushed_log_floor.mp4` in make_fixtures.py, added to cover the gap.
+        "black_floor_code": 95 / 1023,
     },
     "unknown": {
         "label": "unknown/none",

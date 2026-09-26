@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      body { font-family: -apple-system, "Segoe UI", sans-serif; font-size: 11px;
+             margin: 0; padding: 10px; }
+      h1 { font-size: 12px; margin: 0 0 8px 0; letter-spacing: .04em; text-transform: uppercase; }
+      .row { display: flex; gap: 6px; margin-bottom: 6px; flex-wrap: wrap; }
+      button { font-size: 11px; padding: 4px 9px; }
+      #folder { font-size: 10px; opacity: .75; word-break: break-all; margin-bottom: 8px; }
+      #state { font-weight: 600; margin-bottom: 6px; }
+      #log { font-family: ui-monospace, Menlo, monospace; font-size: 10px; white-space: pre-wrap;
+             height: 230px; overflow-y: auto; border: 1px solid rgba(128,128,128,.45);
+             padding: 6px; border-radius: 3px; }
+    </style>
+  </head>
+  <body>
+    <h1>film-shoot timeline</h1>
+    <div id="state">idle</div>
+    <div id="folder">no job folder chosen</div>
+    <div class="row">
+      <button id="pick">Job folder…</button>
+      <button id="listen">Start listening</button>
+      <button id="probe">Probe API</button>
+      <button id="clear">Clear log</button>
+    </div>
+    <div id="log"></div>
+    <script src="main.js"></script>
+  </body>
+</html>
