@@ -5,14 +5,18 @@ fix most of it.
 
     python doctor.py                    # check everything, change nothing
     python doctor.py --fix              # check, then offer to fix what it can (asks first)
-    python doctor.py --fix --yes        # fix without asking -- for Claude, AFTER the person agreed
+    python doctor.py --fix --yes        # fix without asking -- for an assistant, AFTER they agreed
     python doctor.py --install-skill    # copy this folder to where Claude Code looks for skills
-    python doctor.py --json             # machine-readable, for Claude
+    python doctor.py --json             # machine-readable, for an assistant
     python doctor.py --selftest
 
 Written for someone who has never opened a terminal: every problem comes with what it means and
-what to do, and Claude can run the fixes on their behalf. Run it first on a new computer, and
+what to do, and an assistant can run the fixes on their behalf. Run it first on a new computer, and
 again whenever a tool fails in a way that looks like setup rather than footage.
+
+Nothing here needs an assistant, or Claude specifically. The one Claude-shaped check is whether the
+folder sits in `~/.claude/skills/`, which is only how Claude Code finds a skill by itself — and it
+reports INFO rather than a failure on a computer that has no `~/.claude` at all.
 
 ⚠️ This file must keep running on an OLD Python -- diagnosing "your Python is too old" is part of
 its job -- so it avoids syntax newer than 3.8, even though the tools themselves need 3.12.
@@ -79,7 +83,7 @@ def run(cmd, timeout=600):
 
 
 def python_cmd():
-    """How a person (or Claude) should start Python on this computer."""
+    """How a person (or an assistant) should start Python on this computer."""
     if IS_WIN:
         return "py -3.12" if shutil.which("py") else "python"
     return "python3"
@@ -108,10 +112,10 @@ def check_utf8():
     def fix():
         code, out = run(["setx", "PYTHONUTF8", "1"])
         return code == 0, ("UTF-8 mode turned on for your user account. It applies to newly "
-                           "opened windows and new Claude sessions." if code == 0 else out.strip())
+                           "opened windows and new sessions." if code == 0 else out.strip())
     return Check("Text output (Windows)", FAIL, "UTF-8 mode is off",
                  meaning="Several tools print symbols like ✓ and →. With Windows' default text "
-                         "setting, those crash the tool when Claude runs it.",
+                         "setting, those crash the tool when an assistant runs it.",
                  todo="Turn on Python's UTF-8 mode for your user account (a single setting).",
                  fix=fix, fix_label="set PYTHONUTF8=1 for this user (setx)")
 
@@ -216,7 +220,7 @@ def path_order_advice(partial_dir, full_dir, system, user):
     if where_partial == "user" and where_full is None:
         return f"Add {full_dir} to your account's Path, above {partial_dir}. ({user_ui}.)"
     return (f"Make {full_dir} come before {partial_dir} in PATH — or rename or remove the partial "
-            f"ffmpeg.exe. Claude can walk you through it.")
+            f"ffmpeg.exe. An assistant can walk you through it.")
 
 
 def check_ffmpeg():
@@ -233,7 +237,7 @@ def check_ffmpeg():
             if not shutil.which("brew"):
                 return False, "Homebrew isn't installed. Get it from https://brew.sh, then: brew install ffmpeg"
             code, out = run(["brew", "install", "ffmpeg"], 1800)
-        return code == 0, ("ffmpeg installed. Open a new window (or a new Claude session) so it's "
+        return code == 0, ("ffmpeg installed. Open a new window (or a new session) so it's "
                            "found, then re-run this check." if code == 0 else out.strip()[-600:])
 
     if not ff:
@@ -321,9 +325,19 @@ def check_skill():
         return Check("Installed for Claude", INFO, "Running from a git checkout",
                      meaning="Claude Code finds skills in " + str(skills_dir()) + ".",
                      todo=f"Either clone into {dest}, or run: {python_cmd()} doctor.py --install-skill")
+    # 🔴 Not installed is only a FAILURE for someone who uses Claude Code. The tools are plain
+    # Python and ffmpeg and run from wherever this folder sits — no model, no API key, no network —
+    # so telling a shell-only user their setup is broken would be simply untrue.
+    # The tell is whether they have a ~/.claude at all.
+    if not (Path.home() / ".claude").exists():
+        return Check("Installed for Claude", INFO, "Not installed as a skill, and that is fine here",
+                     meaning="No ~/.claude on this computer, so Claude Code does not look like part "
+                             "of this setup. Every tool runs standalone from this folder; the skill "
+                             "folder only matters for an assistant to load the method by itself.",
+                     todo=f"If you do want that: {python_cmd()} doctor.py --install-skill")
     return Check("Installed for Claude", FAIL, "Not installed where Claude looks for skills",
                  meaning=f"Claude Code finds skills in {skills_dir()}. Until it's there, Claude "
-                         "won't know to use it.",
+                         "won't know to use it. (The tools themselves work from here regardless.)",
                  todo=f"{python_cmd()} doctor.py --install-skill",
                  fix=install_skill, fix_label=f"copy this folder to {dest}")
 
@@ -378,10 +392,17 @@ def check_editors():
     if premiere:
         found.append(Path(premiere).name)
     if found:
+        # ⚠️ "Found" is not "usable": the preference that lets an outside script connect to Resolve
+        # is documented under STUDIO, so the free edition may not be drivable from a shell at all.
+        # That caveat is not repeated here — a green line should stay one line, and the renderer
+        # only shows `meaning` for problems. It lives in references/nle-backends.md, and
+        # `resolve_connect.py --check` answers it on the machine in question.
         return Check("Editing app", OK, " and ".join(found))
     return Check("Editing app", INFO, "No DaVinci Resolve or Premiere Pro found",
-                 meaning="Only needed for the last step — building the edit timeline automatically. "
-                         "Everything before that works without one.")
+                 meaning="Not needed. It buys you an EDITABLE TIMELINE at the end; without one, "
+                         "`assemble_ffmpeg.py` builds the same plan into a full-quality master — "
+                         "measured at 1.08 codes of 255 against a delivered programme. Everything "
+                         "else here never needed an editing application.")
 
 
 def all_checks():
@@ -471,6 +492,32 @@ def selftest():
 
     # PATH-order advice: the system list always wins, whatever the order inside the user list
     im, fl = r"C:\Program Files\ImageMagick", r"C:\Users\x\WinGet\Links"
+    # 🔴 A shell-only user must not be told their setup is broken. The tools need no assistant at
+    #    all, so "not installed as a skill" is INFO when there is no ~/.claude, and FAIL when there
+    #    is one (because then they clearly do use Claude Code and it will not find the skill).
+    #
+    # ⚠️ ROOT is patched as well as home. Without that, this repo's own .git sends check_skill()
+    #    down the "running from a git checkout" branch and the INFO assertion passes for entirely
+    #    the wrong reason — which is what the second assertion here caught.
+    import unittest.mock as _mock
+    with tempfile.TemporaryDirectory() as _d:
+        fake_home, fake_root = Path(_d) / "home", Path(_d) / "elsewhere"
+        fake_home.mkdir()
+        fake_root.mkdir()                                   # no .git in it
+        def _skill_check(home_has_claude):
+            if home_has_claude:
+                (fake_home / ".claude").mkdir(exist_ok=True)
+            with _mock.patch.object(Path, "home", staticmethod(lambda: fake_home)), \
+                 _mock.patch.object(sys.modules[__name__], "ROOT", fake_root):
+                return check_skill()
+        c = _skill_check(False)
+        check("no ~/.claude -> not installed is INFO, not a failure", c.level == INFO)
+        check("...and it says the tools still run", "standalone" in (c.meaning or ""))
+        c2 = _skill_check(True)
+        check("with ~/.claude present -> it IS a failure", c2.level == FAIL)
+        check("...and even then it says the tools still work",
+              "regardless" in (c2.meaning or ""))
+
     a = path_order_advice(im, fl, system=[r"C:\Windows", im], user=[fl])
     check("partial in SYSTEM (even last), full in user -> add full to SYSTEM",
           "SYSTEM Path" in a and "can't" in a)

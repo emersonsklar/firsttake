@@ -1,8 +1,13 @@
-# Setting this up for someone — instructions for Claude
+# Setting this up for someone — instructions for the assistant
 
 Read this when someone asks you to set up, install, or check this skill, or when a tool fails in a
 way that looks like setup (missing program, "module not found", a crash printing a symbol) rather
 than a problem with their footage.
+
+ℹ️ Written for Claude Code, and nothing in it is specific to Claude: the steps are shell commands
+and `scripts/doctor.py`. Any coding assistant that can run a terminal can follow this file. Only
+the last step — installing into `~/.claude/skills/` so the skill loads by itself — is Claude Code's
+own convention, and it is optional; the tools work from wherever the folder sits.
 
 **Assume the person has never used a terminal.** They may not know what Python or a PATH is, and
 they don't need to. Do the work yourself, one step at a time, and say in one plain sentence what

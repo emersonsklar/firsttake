@@ -10,7 +10,7 @@ cuts and pull clips — assembled by script, with every number in it measured.
 
 <sub>
 <code>python 3.12+</code> · <code>ffmpeg</code> · <code>numpy</code> &nbsp;•&nbsp;
-the measurement tools work with or without Claude
+every tool here runs standalone — no assistant, no API key
 </sub>
 
 </div>
@@ -243,10 +243,11 @@ The references are written to be read when you need them. These are written to b
 
 ## Install
 
-**The easy way:** open this folder in Claude Code — the desktop app's Code tab works, no
-terminal needed — and say *"set this up for me"*. Claude follows
-[`SETUP-FOR-CLAUDE.md`](SETUP-FOR-CLAUDE.md): it checks the computer, installs what's missing
-once you've agreed to each item, and finishes with a one-minute practice run.
+**The easy way:** open this folder in Claude Code and say *"set this up for me"*. Any of the ways
+it runs will do — the **terminal CLI**, the **desktop app**'s Code tab, **claude.ai/code** in a
+browser, or the **VS Code / JetBrains** extensions. The desktop app and the web app need no terminal
+at all. It then follows [`SETUP-FOR-CLAUDE.md`](SETUP-FOR-CLAUDE.md): checks the computer, installs
+what's missing once you've agreed to each item, and finishes with a one-minute practice run.
 
 **By hand:**
 
@@ -261,12 +262,27 @@ python3 scripts/first_run.py       # practice offload + QC, about a minute
 Claude Code picks it up from `~/.claude/skills/`. For a single project instead, clone to
 `<project>/.claude/skills/film-shoot`.
 
+### Does it have to be Claude?
+
+**The tools: no.** Every script under `scripts/` is plain Python plus ffmpeg — argparse, `--help`,
+`--selftest`, no model, no API key, no network. Offload and verify cards, QC footage, sync cameras,
+master audio, fit LUTs, assemble a cut with ffmpeg: all of it runs from a shell with no assistant
+involved at all.
+
+**The automatic part: yes, that much is Claude Code's convention** — and only in two narrow places.
+`SKILL.md`'s frontmatter is the format Claude Code reads to decide when a skill is relevant, and
+`~/.claude/skills/` is where it looks. Nothing else depends on it.
+
+Everything in between — `references/`, the tutorials, `SETUP-FOR-CLAUDE.md` — is ordinary Markdown
+written to be read by an assistant. Point a different coding agent at this folder and it can read the
+method and run the same scripts; what it will not do is load itself at the right moment.
+
 Requirements: **Python 3.12+**, a full `ffmpeg` with `ffprobe`, and `numpy`, `soundfile` and
 `Pillow` (`requirements.txt`). Optional: `xxhash` (faster hashing), `ascmhl`
 (generation-chained manifests), `pymupdf` (PDF page verification).
 
 Works on macOS and Windows. On Windows, `scripts/doctor.py --fix` also turns on Python's UTF-8
-mode, which the tools' output needs when Claude runs them.
+mode, which the tools' output needs when an assistant runs them.
 
 **No NLE is required, and nothing here is paid.** DaVinci Resolve Studio or Premiere Pro buys you an
 editable timeline at the end; without either, the same plan assembles with ffmpeg to a full-quality
@@ -276,7 +292,7 @@ master. See `references/nle-backends.md`, "Finishing with no NLE at all".
 
 ## The tools
 
-Useful on their own, with or without Claude.
+Useful on their own. Plain Python and ffmpeg — `--help` and `--selftest` on every one, no model and no network. See [Does it have to be Claude?](#does-it-have-to-be-claude).
 
 | | |
 |---|---|

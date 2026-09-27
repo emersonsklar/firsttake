@@ -1,6 +1,6 @@
 # Tools
 
-Standalone. Useful with or without Claude.
+Standalone. Plain Python and ffmpeg — every one takes `--help`, most take `--selftest`, and none needs a model, an API key or a network. An assistant makes them easier to drive; it is not required to run any of them.
 
 The post tools (from `sync_cameras.py` down, except `scrub_check.py`) need an active license —
 see `license_check.py`. Offload, QC, fixtures, day sheets and the on-set LUT never do, every
