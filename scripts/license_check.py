@@ -46,6 +46,28 @@ repo runs with no license present.
 
 ⚠️ A network failure is never read as "invalid". Only an explicit answer from the store is.
 
+## Tamper evidence: copying or editing a file is not enough
+
+Editing this Python can defeat any local check, and nothing here pretends otherwise. What it does
+close are the bypasses that need no code, which are the ones an ordinary person would try:
+
+  sealed license.json   HMAC over the record, keyed by this computer's OS machine id (Windows
+                        MachineGuid, macOS IOPlatformUUID, Linux /etc/machine-id). Edit a field, or
+                        copy the file to another computer, and the seal fails: the record is
+                        treated as absent and the key must be re-activated -- which is where a
+                        seat is counted. Comp tokens prove themselves and are simply re-sealed;
+                        GitHub friends re-activate on their own. An OS reinstall reads as a new
+                        computer, the same as buying one.
+  projects by folder    each started project is recorded in the sealed record against its folder
+                        NAME. A project file copied into a differently named folder is refused;
+                        moving a shoot to another drive keeps the name and keeps working.
+  clock high-water      the latest time ever seen is kept in the sealed record. A clock set back
+                        more than a day forces an online check instead of trusting cache or grace,
+                        so blocking the store and freezing the clock does not extend a lapsed
+                        license.
+
+The machine id is used only as a key on this computer. It is never sent anywhere.
+
 ## What leaves the machine
 
 Only the license key and a product id, to api.gumroad.com/v2/licenses/verify — an endpoint that
@@ -59,9 +81,12 @@ from __future__ import annotations
 
 import base64
 import datetime as _dt
+import functools
 import hashlib
+import hmac
 import json
 import os
+import platform
 import subprocess
 import sys
 import urllib.error
@@ -89,6 +114,8 @@ PROJECT_STAMP = ".film-shoot-project.json"
 GITHUB_REPO = "emersonsklar/film-shoot"
 GITHUB_GRACE = _dt.timedelta(days=30)
 SKILL_ROOT = Path(__file__).resolve().parent.parent
+CLOCK_SLACK = _dt.timedelta(days=1)          # tolerated clock drift before "set back" is assumed
+_SEAL_CONTEXT = b"film-shoot license seal v1"
 
 
 class LicenseError(Exception):
@@ -121,11 +148,96 @@ def parse_iso(s: str) -> _dt.datetime:
     return _dt.datetime.strptime(s, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=_dt.timezone.utc)
 
 
-def load_license() -> dict | None:
+@functools.lru_cache(maxsize=1)
+def machine_id() -> str:
+    """The OS's own stable machine identifier. Survives reboots, network and hostname changes;
+    changes on an OS reinstall. Used only as a local seal key -- never sent anywhere."""
+    system = platform.system()
     try:
-        return json.loads(license_path().read_text(encoding="utf-8"))
-    except (OSError, ValueError):
+        if system == "Windows":
+            import winreg
+            with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Cryptography",
+                                0, winreg.KEY_READ | getattr(winreg, "KEY_WOW64_64KEY", 0)) as k:
+                return "win:" + winreg.QueryValueEx(k, "MachineGuid")[0]
+        if system == "Darwin":
+            out = subprocess.run(["ioreg", "-rd1", "-c", "IOPlatformExpertDevice"],
+                                 capture_output=True, text=True, timeout=10).stdout
+            for line in out.splitlines():
+                if "IOPlatformUUID" in line:
+                    return "mac:" + line.split("=")[-1].strip().strip('"')
+        for f in ("/etc/machine-id", "/var/lib/dbus/machine-id"):
+            if os.path.isfile(f):
+                value = open(f, encoding="ascii").read().strip()
+                if value:
+                    return "linux:" + value
+    except Exception:                                        # noqa: BLE001
+        pass
+    # ⚠️ No OS id available: fall back to the node name. Weaker (it can be renamed), but a
+    # licensed user must never be locked out because a platform hides its machine id.
+    return "node:" + platform.node()
+
+
+# Replaced by the selftest to simulate a second computer.
+_machine = machine_id
+
+
+def _seal(lic: dict) -> str:
+    body = json.dumps({k: v for k, v in lic.items() if k != "seal"},
+                      sort_keys=True, separators=(",", ":")).encode()
+    key = hashlib.sha256(_SEAL_CONTEXT + _machine().encode()).digest()
+    return hmac.new(key, body, hashlib.sha256).hexdigest()
+
+
+def read_license() -> tuple[dict | None, str]:
+    """(record, state): "none", "ok", "unsealed", or "broken" (edited, or copied from elsewhere).
+
+    🔴 "unsealed" and "broken" are DIFFERENT, and conflating them accuses honest users. Records
+    written before sealing existed have no `seal` field at all, so a missing seal is not evidence of
+    anything — every record in the field is currently like that. A seal that is PRESENT and WRONG is
+    the evidence. Both still fail closed (neither is returned as authoritative, so a copied paid
+    record is refused either way); they differ only in what the user is told, and in whether a
+    license that can prove itself another way recovers silently.
+    """
+    try:
+        raw = json.loads(license_path().read_text(encoding="utf-8"))
+    except OSError:
+        return None, "none"
+    except ValueError:
+        return None, "none"          # torn/unparseable: treated as absent, as before
+    if not raw or not isinstance(raw, dict):
+        return None, "none"
+    seal = raw.get("seal")
+    if isinstance(seal, str) and hmac.compare_digest(seal, _seal(raw)):
+        return raw, "ok"
+    # A comp token proves itself: a copied comp record is no more than sharing the token, which
+    # the holder could do anyway. Re-seal it for this computer rather than bother a friend.
+    if raw.get("kind") == "comp" and isinstance(raw.get("key"), str):
+        try:
+            read_comp(raw["key"])
+            save_license(raw)
+            return raw, "ok"
+        except LicenseError:
+            pass
+    return None, "unsealed" if seal is None else "broken"
+
+
+def recover_unsealed() -> dict | None:
+    """A license that can prove itself WITHOUT the seal, for records that predate sealing.
+
+    Only GitHub friends qualify here (comps are re-sealed in `read_license` above). A paid record
+    must re-activate, because an unsealed paid record is exactly as likely to be a copy from
+    another computer — which is the hole the seal exists to close.
+    """
+    if not (SKILL_ROOT / ".git").exists():
         return None
+    try:
+        return activate_github()
+    except LicenseError:
+        return None
+
+
+def load_license() -> dict | None:
+    return read_license()[0]
 
 
 def save_license(lic: dict) -> None:
@@ -138,11 +250,26 @@ def save_license(lic: dict) -> None:
     traceback. A rename on the same filesystem is atomic, so the file on disk is always either the
     old licence or the new one, never a torn mixture of both.
     """
+    lic["seal"] = _seal(lic)
     p = license_path()
     p.parent.mkdir(parents=True, exist_ok=True)
     tmp = p.with_name(p.name + ".partial")
     tmp.write_text(json.dumps(lic, indent=2) + "\n", encoding="utf-8")
     os.replace(tmp, p)
+
+
+def clock_set_back(lic: dict) -> bool:
+    """True if this computer's clock is more than a day behind the latest time the record has seen.
+    Otherwise advances the high-water mark (saved by the caller's next save_license)."""
+    try:
+        seen = parse_iso(lic.get("seen_at") or lic["activated_at"])
+    except (KeyError, ValueError, TypeError):
+        seen = now()
+    if now() < seen - CLOCK_SLACK:
+        return True
+    if now() > seen:
+        lic["seen_at"] = iso(now())
+    return False
 
 
 def fingerprint(key: str) -> str:
@@ -424,9 +551,17 @@ def start_project(folder: Path) -> dict:
     if not lic:
         raise LicenseError(f"No license is active on this computer. Run "
                            f"`license_check.py activate <key>` — buy one at {BUY_URL}.")
+    folder = folder.resolve()
     stamp_path = folder / PROJECT_STAMP
     if stamp_path.is_file():
-        return json.loads(stamp_path.read_text(encoding="utf-8"))
+        try:
+            existing = json.loads(stamp_path.read_text(encoding="utf-8"))
+        except ValueError:
+            existing = {}
+        if lic["tier"] != "per-project" or stamp_valid(lic, existing, folder):
+            return existing
+        # A project file that isn't this license's project for THIS folder (copied from another
+        # shoot, or from another key): this is a new project, and it is counted as one.
     if lic["tier"] == "per-project":
         try:
             resp = _verify(lic["product_id"], lic["key"], increment=True)
@@ -443,24 +578,42 @@ def start_project(folder: Path) -> dict:
     else:
         check_active(lic)
     stamp = {"project_id": str(uuid.uuid4()), "started_at": iso(now()),
-             "key_fingerprint": fingerprint(lic["key"]), "tier": lic["tier"]}
+             "key_fingerprint": fingerprint(lic["key"]), "tier": lic["tier"],
+             "folder": folder.name}
+    if lic["tier"] == "per-project":
+        lic.setdefault("projects", {})[stamp["project_id"]] = folder.name
+        save_license(lic)
     folder.mkdir(parents=True, exist_ok=True)
     stamp_path.write_text(json.dumps(stamp, indent=2) + "\n", encoding="utf-8")
     return stamp
 
 
+CLOCK_MESSAGE = ("This computer's clock looks set back, so the license can't be confirmed from "
+                 "the last check. Correct the date and time, connect once, and run this again.")
+
+
 def check_active(lic: dict) -> None:
     """Annual and comp: is this license good for work right now? Raises LicenseError if not."""
+    set_back = clock_set_back(lic)
     if lic["kind"] == "comp":
+        if set_back and read_comp(lic["key"]).get("expires"):
+            raise LicenseError(CLOCK_MESSAGE)
         read_comp(lic["key"])
         return
     last = parse_iso(lic["last_verified_at"])
+    # A verification stamped in the future, or a clock set back, means cache and grace can't be
+    # trusted: only a fresh answer counts.
+    trust_cache = not set_back and last <= now() + CLOCK_SLACK
     if lic["kind"] == "github":
-        if now() - last < REVERIFY_AFTER and lic.get("last_verified_ok"):
+        if trust_cache and now() - last < REVERIFY_AFTER and lic.get("last_verified_ok"):
+            save_license(lic)
             return
         ok = _github()
         if ok is None:
+            if not trust_cache:
+                raise LicenseError(CLOCK_MESSAGE)
             if lic.get("last_verified_ok") and now() - last < GITHUB_GRACE:
+                save_license(lic)
                 return
             raise LicenseError("Your friend license hasn't been confirmed with GitHub for over 30 "
                                "days. Connect once and run this again; nothing else is needed.")
@@ -471,12 +624,16 @@ def check_active(lic: dict) -> None:
                                f"which is what licensed this computer. If that's a mistake, "
                                f"email {SUPPORT}.")
         return
-    if now() - last < REVERIFY_AFTER and lic.get("last_verified_ok"):
+    if trust_cache and now() - last < REVERIFY_AFTER and lic.get("last_verified_ok"):
+        save_license(lic)
         return
     try:
         resp = _verify(lic["product_id"], lic["key"], increment=False)
     except StoreUnreachable:
+        if not trust_cache:
+            raise LicenseError(CLOCK_MESSAGE) from None
         if lic.get("last_verified_ok") and now() - last < OFFLINE_GRACE:
+            save_license(lic)
             return
         raise LicenseError("Your license hasn't been confirmed for over a week because the "
                            "license server couldn't be reached. Connect once and run this again; "
@@ -493,28 +650,50 @@ def check_active(lic: dict) -> None:
     save_license(lic)
 
 
-def find_stamp(paths: list[Path]) -> dict | None:
+def find_stamp(paths: list[Path]) -> tuple[dict | None, Path | None]:
+    """The nearest project file at or above any given path, and the folder it sits in."""
     for start in paths:
         start = start.resolve()
         for d in [start] + list(start.parents):
             f = d / PROJECT_STAMP
             if f.is_file():
                 try:
-                    return json.loads(f.read_text(encoding="utf-8"))
+                    return json.loads(f.read_text(encoding="utf-8")), d
                 except ValueError:
-                    return None
-    return None
+                    return None, d
+    return None, None
+
+
+def stamp_valid(lic: dict, stamp: dict, folder: Path) -> bool:
+    """A project file counts only if the sealed record started that project under this folder's
+    name, with this key."""
+    return (isinstance(stamp, dict)
+            and stamp.get("key_fingerprint") == fingerprint(lic["key"])
+            and (lic.get("projects") or {}).get(stamp.get("project_id")) == folder.name)
 
 
 def check_for_work(argv: list[str]) -> None:
     """The gate's decision. Raises LicenseError with a message a person can act on."""
-    lic = load_license()
+    lic, state = read_license()
     if not lic and (SKILL_ROOT / ".git").exists():
         try:
             lic = activate_github()
             print("Licensed through your GitHub access to film-shoot.", file=sys.stderr)
         except LicenseError:
             lic = None
+    if not lic and state == "broken":
+        raise LicenseError(f"The license record at {license_path()} doesn't match this computer "
+                           f"— it was edited, copied from another computer, or the system was "
+                           f"reinstalled. Re-activate with `license_check.py activate <key>`. "
+                           f"Moving to a new computer? Email {SUPPORT}.")
+    if not lic and state == "unsealed":
+        # A record from before sealing existed, or one that never parsed into a usable license.
+        # Neither is evidence of anything, so this names the file without accusing anyone.
+        raise LicenseError(f"The license record at {license_path()} was written by an earlier "
+                           f"version, which didn't tie a record to one computer. Re-activate once "
+                           f"with `license_check.py activate <key>` and it will keep working "
+                           f"(deleting that file and re-activating does the same). Questions? "
+                           f"Email {SUPPORT}.")
     if not lic:
         raise LicenseError(f"The post tools need an active license. Run "
                            f"`license_check.py activate <key>` — buy one at {BUY_URL}. "
@@ -525,11 +704,17 @@ def check_for_work(argv: list[str]) -> None:
     # Per-project: the work has to be inside a started project, found from the working directory
     # or from any path the tool was given.
     candidates = [Path.cwd()] + [Path(a) for a in argv if a and not a.startswith("-")]
-    stamp = find_stamp(candidates)
-    if not stamp or stamp.get("key_fingerprint") != fingerprint(lic["key"]):
-        raise LicenseError("A per-project license covers work inside a started project. Run "
-                           "`license_check.py start-project <shoot folder>` once for this shoot, "
-                           "then run this from inside that folder.")
+    stamp, folder = find_stamp(candidates)
+    if stamp and folder and stamp_valid(lic, stamp, folder):
+        return
+    started_as = (lic.get("projects") or {}).get((stamp or {}).get("project_id"))
+    if started_as and folder and started_as != folder.name:
+        raise LicenseError(f"This project was started in a folder named '{started_as}', and this "
+                           f"one is '{folder.name}'. If you renamed it, rename it back — or run "
+                           f"`license_check.py start-project` here to start it as a new project.")
+    raise LicenseError("A per-project license covers work inside a started project. Run "
+                       "`license_check.py start-project <shoot folder>` once for this shoot, "
+                       "then run this from inside that folder.")
 
 
 def gate(tool: str, argv: list[str] | None = None, free_flags: tuple[str, ...] = ()) -> None:
@@ -562,7 +747,22 @@ def gate(tool: str, argv: list[str] | None = None, free_flags: tuple[str, ...] =
 
 
 def status() -> str:
-    lic = load_license()
+    lic, state = read_license()
+    if state == "unsealed":
+        # ⚠️ `status` is the FIRST thing anyone runs, so it must not accuse. Recover exactly as the
+        # gate does, rather than reporting a fault that running any tool would have fixed silently.
+        lic = recover_unsealed()
+        if lic:
+            state = "ok"
+    if not lic and state == "broken":
+        return (f"The license record doesn't match this computer (edited, copied, or the system "
+                f"was reinstalled). Re-activate with `license_check.py activate <key>`; moving to "
+                f"a new computer, email {SUPPORT}.")
+    if not lic and state == "unsealed":
+        return (f"The license record at {license_path()} was written by an earlier version, which "
+                f"didn't tie a record to one computer. Re-activate once with "
+                f"`license_check.py activate <key>` and it will keep working; questions, email "
+                f"{SUPPORT}.")
     if not lic:
         return f"No license active on this computer. Buy one at {BUY_URL}."
     who = f" for {lic['holder']}" if lic.get("holder") else ""
@@ -585,7 +785,7 @@ def selftest() -> int:
     """Every branch above against a fake store and RFC 8032 vectors. Needs no network."""
     import tempfile
 
-    global _verify, _github, _ls_remote, COMP_PUBLIC_KEY
+    global _verify, _github, _ls_remote, _machine, now, COMP_PUBLIC_KEY, SKILL_ROOT
     failures = []
 
     def check(name, cond):
@@ -745,7 +945,16 @@ def selftest() -> int:
         os.environ["FILM_SHOOT_HOME"] = str(Path(tmp) / "home-gh")
         check("github: no access, no license -> refused", refused(check_for_work, []))
         github["access"] = True
+        # ⚠️ Auto-activation only happens in a git checkout. Point SKILL_ROOT at fake ones, so this
+        # passes the same way from a clone and from an unzipped release -- where a buyer may run it.
+        real_root = SKILL_ROOT
+        SKILL_ROOT = Path(tmp) / "not-a-checkout"
+        SKILL_ROOT.mkdir()
+        check("github: outside a git checkout, never attempted", refused(check_for_work, []))
+        SKILL_ROOT = Path(tmp) / "a-checkout"
+        (SKILL_ROOT / ".git").mkdir(parents=True)
         check("github: access auto-activates a friend license", not refused(check_for_work, []))
+        SKILL_ROOT = real_root
         check("github: recorded as a github license", load_license()["kind"] == "github")
         lic = load_license()
         lic["last_verified_at"] = iso(now() - _dt.timedelta(days=2))
@@ -877,6 +1086,177 @@ def selftest() -> int:
         check("save_license wrote a complete, parseable record",
               (load_license() or {}).get("tier") == "friend")
         os.environ.pop("FILM_SHOOT_HOME", None)
+
+
+    # ---- tamper evidence: the bypasses that need no code ------------------------------------
+    #
+    # Each of these was demonstrated to WORK against the first merged version, by copying or
+    # editing a file. They must all be refused now, and none of the legitimate cases next to them
+    # (moving a shoot, re-activating, a friend changing computer) may be caught in the net.
+    tstore = {}
+
+    def t_verify(product_id, key, increment):
+        if tstore.get("down"):
+            raise StoreUnreachable("simulated outage")
+        rec = tstore.get((product_id, key))
+        if rec is None:
+            return {"success": False}
+        if increment:
+            rec["uses"] += 1
+        return {"success": True, "uses": rec["uses"], "purchase": dict(rec["purchase"])}
+
+    real_machine, real_now = _machine, now
+    _verify, _github = t_verify, (lambda: False)
+    machine = {"id": "computer-A"}
+    _machine = lambda: machine["id"]                          # noqa: E731
+    clock = {"shift": _dt.timedelta(0)}
+    now = lambda: real_now() + clock["shift"]                 # noqa: E731
+
+    def refused(fn, *a):
+        try:
+            fn(*a)
+            return False
+        except LicenseError:
+            return True
+
+    with tempfile.TemporaryDirectory() as td:
+        td = Path(td)
+        os.environ["FILM_SHOOT_HOME"] = str(td / "home-A")
+
+        # 1. per-project: a project file copied into a second shoot folder
+        tstore[(PRODUCT_PER_PROJECT, "P1")] = {"uses": 0, "purchase": {"quantity": 1}}
+        activate("P1")
+        start_project(td / "2026-10-01-clientA")
+        (td / "2026-10-08-clientB").mkdir()
+        (td / "2026-10-08-clientB" / PROJECT_STAMP).write_bytes(
+            (td / "2026-10-01-clientA" / PROJECT_STAMP).read_bytes())
+        check("tamper: copied project file in another shoot folder -> refused",
+              refused(check_for_work, [str(td / "2026-10-08-clientB")]))
+        check("tamper: start-project over a copied file counts a new project (over quantity -> refused)",
+              refused(start_project, td / "2026-10-08-clientB"))
+        (td / "archive-drive").mkdir()
+        os.replace(td / "2026-10-01-clientA", td / "archive-drive" / "2026-10-01-clientA")
+        check("legit: shoot moved to another drive, same folder name -> still works",
+              not refused(check_for_work, [str(td / "archive-drive" / "2026-10-01-clientA")]))
+        os.replace(td / "archive-drive" / "2026-10-01-clientA", td / "renamed-shoot")
+        try:
+            check_for_work([str(td / "renamed-shoot")])
+            check("legit: renamed shoot folder -> refused with 'rename it back'", False)
+        except LicenseError as e:
+            check("legit: renamed shoot folder -> refused with 'rename it back'", "rename it back" in str(e))
+
+        # 2. annual Creator: license.json copied to a second computer
+        os.environ["FILM_SHOOT_HOME"] = str(td / "home-A2")
+        tstore[(PRODUCT_ANNUAL, "A1")] = {"uses": 0, "purchase": {"variants": "(Creator)", "quantity": 1}}
+        activate("A1")
+        check("creator: works on the computer it was activated on", not refused(check_for_work, []))
+        machine["id"] = "computer-B"
+        check("tamper: license.json copied to a second computer -> refused", refused(check_for_work, []))
+        try:
+            check_for_work([])
+        except LicenseError as e:
+            check("tamper: that refusal says the record doesn't match this computer",
+                  "doesn't match this computer" in str(e))
+        check("tamper: re-activating on the second computer counts a seat -> refused",
+              refused(activate, "A1"))
+        machine["id"] = "computer-A"
+
+        # 🔴 A record from BEFORE sealing existed has no seal at all, which is not evidence of
+        #    anything — every record in the field is like that today. It must still fail closed for
+        #    a paid tier, and it must NOT accuse the user. This exact case reported "edited, copied,
+        #    or the system was reinstalled" to a legitimate friend license on a real machine.
+        sealed_bytes = license_path().read_text(encoding="utf-8")
+        raw = json.loads(sealed_bytes)
+        raw.pop("seal", None)
+        license_path().write_text(json.dumps(raw), encoding="utf-8")
+        check("legacy: a record with no seal is 'unsealed', not 'broken'",
+              read_license()[1] == "unsealed")
+        check("legacy: an unsealed PAID record still fails closed", refused(check_for_work, []))
+        try:
+            check_for_work([])
+        except LicenseError as e:
+            check("legacy: and says it predates this version, without accusing",
+                  "earlier version" in str(e) and "copied" not in str(e))
+        check("legacy: status does not accuse either",
+              "earlier version" in status() and "copied" not in status())
+        # a seal that is PRESENT and WRONG is still the accusation, which is the real evidence
+        raw["seal"] = "0" * 64
+        license_path().write_text(json.dumps(raw), encoding="utf-8")
+        check("tamper: a WRONG seal is still 'broken'", read_license()[1] == "broken")
+        # restore the sealed record verbatim: re-activating would spend another seat
+        license_path().write_text(sealed_bytes, encoding="utf-8")
+        check("legacy: the restored sealed record works again", not refused(check_for_work, []))
+
+        # 3. an edited field breaks the seal
+        lic_file = license_path()
+        raw = json.loads(lic_file.read_text(encoding="utf-8"))
+        raw["last_verified_at"] = iso(real_now() + _dt.timedelta(days=3650))
+        lic_file.write_text(json.dumps(raw), encoding="utf-8")
+        check("tamper: hand-edited verify date -> record rejected", load_license() is None)
+        raw["tier"] = "studio"
+        lic_file.write_text(json.dumps(raw), encoding="utf-8")
+        check("tamper: hand-edited tier -> record rejected", load_license() is None)
+
+        # 4. clock set back, store blocked: a lapsed annual must not live on
+        os.environ["FILM_SHOOT_HOME"] = str(td / "home-A3")
+        tstore[(PRODUCT_ANNUAL, "A2")] = {"uses": 0, "purchase": {"variants": "(Creator)", "quantity": 1}}
+        clock["shift"] = _dt.timedelta(days=0)
+        activate("A2")
+        clock["shift"] = _dt.timedelta(days=40)
+        check("annual: a check 40 days on (store up) passes and moves the high-water mark",
+              not refused(check_for_work, []))
+        tstore[(PRODUCT_ANNUAL, "A2")]["purchase"]["subscription_ended_at"] = "2026-10-01"
+        tstore["down"] = True
+        clock["shift"] = _dt.timedelta(days=39, hours=12)
+        check("legit: clock a few hours behind the high-water mark is tolerated",
+              not refused(check_for_work, []))
+        clock["shift"] = _dt.timedelta(days=0)
+        try:
+            check_for_work([])
+            check("tamper: clock set back 40 days + store blocked -> refused", False)
+        except LicenseError as e:
+            check("tamper: clock set back 40 days + store blocked -> refused", "clock" in str(e))
+        tstore["down"] = False
+        check("tamper: clock set back but store reachable -> the store's answer decides (lapsed -> refused)",
+              refused(check_for_work, []))
+        clock["shift"] = _dt.timedelta(0)
+
+        # 5. friends are not caught by any of it
+        os.environ["FILM_SHOOT_HOME"] = str(td / "home-F")
+        _github = lambda: True                                # noqa: E731
+        activate("--github")
+        machine["id"] = "computer-C"
+        real_root, SKILL_ROOT = SKILL_ROOT, td / "a-checkout"     # friends work from a clone
+        (SKILL_ROOT / ".git").mkdir(parents=True)
+        check("legit: GitHub friend on a new computer re-activates silently",
+              not refused(check_for_work, []))
+        check("legit: ...and is recorded as github", (load_license() or {}).get("kind") == "github")
+        SKILL_ROOT = real_root
+        _github = lambda: False                               # noqa: E731
+        machine["id"] = "computer-A"
+
+        os.environ["FILM_SHOOT_HOME"] = str(td / "home-C")
+        prod_key, COMP_PUBLIC_KEY = COMP_PUBLIC_KEY, t1_pub
+        try:
+            activate(good)
+            machine["id"] = "computer-D"
+            check("legit: comp license copied to a new computer is re-sealed and works",
+                  not refused(check_for_work, []))
+            clock["shift"] = -_dt.timedelta(days=400)
+            check("legit: a perpetual comp ignores the clock", not refused(check_for_work, []))
+            clock["shift"] = _dt.timedelta(0)
+        finally:
+            COMP_PUBLIC_KEY = prod_key
+            machine["id"] = "computer-A"
+
+        # 6. the machine id itself: stable, and never empty
+        mid1, mid2 = real_machine(), real_machine()
+        check("machine_id: stable across calls", mid1 == mid2)
+        check("machine_id: not the weak fallback on this platform", not mid1.startswith("node:")
+              or platform.system() not in ("Windows", "Darwin", "Linux"))
+        os.environ.pop("FILM_SHOOT_HOME", None)
+
+    _verify, _github, _machine, now = real_verify, real_github, real_machine, real_now
 
     print(f"\n{'PASS' if not failures else 'FAIL'}: {len(failures)} failure(s)")
     return 1 if failures else 0
