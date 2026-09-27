@@ -19,7 +19,7 @@ from the same plan that built the shipped Resolve master and matched it to a mea
   the backend itself;
 - **colour cannot be scripted at all** — neither a CDL nor a LUT — so a graded cut has to arrive
   with the grade already rendered into the media;
-- **retime and transitions are absent** too;
+- **retime is absent** too (transitions are implemented, and were proven by measuring a render);
 - it has been exercised on **one machine and one version**, so run `premiere_bridge.py --probe`
   on yours first.
 
@@ -28,6 +28,42 @@ Premiere, rather than the default.
 
 It also means a cut that exists only in one application's dialect has to be rebuilt by hand to move. So
 the plan is the artefact, and the application is a backend.
+
+## 💸 And if you have neither — or only Resolve free
+
+**Nothing here requires paid software.** Everything except the timeline assembly is already ffmpeg:
+offload and verification, QC, sync, transcription, subtitles, loudness mastering, LUT fitting, speed
+ramps, graphic conforming, the day sheets. The plan itself is JSON.
+
+The assembly can be ffmpeg too, and it produces a **full-quality master — not a proxy, not a
+preview**. What you give up is the editable timeline at the end: you cannot nudge a cut by hand
+afterwards, you change the plan and re-assemble. For a scripted programme that is frequently no loss.
+
+🔴 **The one condition: bake the grade into the media ONCE, and let ffmpeg do no colour at all.**
+This is measured, not cautious. An ffmpeg pipeline that re-implemented the colour transform agreed
+with Resolve on geometry to r ≥ 0.9989 and was still **14–18% out in the grade** — and eight review
+renders that had already been approved turned out not to show what the NLE produced. Two
+implementations of one transform will not agree, and the picture looks perfectly fine while they
+disagree. `bake_cdl_into_lut.py` composes the CDL into the camera LUT so a single transform does
+everything; apply it once, at full raster, then assemble against the graded media.
+
+That is the same discipline Premiere needs anyway, since it cannot script colour either.
+
+⚠️ **Resolve free**: the scripting API covers both editions — that much is in Blackmagic's own
+README — but the preference that lets an outside script connect is documented as a *Studio* one. That
+is **unverified**, and one command settles it on a machine that has the free version:
+
+```bash
+python3 scripts/resolve_connect.py --check
+```
+
+If it connects, the note is wrong and should be fixed. If it does not, use the ffmpeg route — or the
+same trick the Premiere backend uses, since Resolve's *internal* scripting (Workspace > Scripts) is
+not Studio-gated anywhere in that README.
+
+⚠️ **Not finished:** there is no general ffmpeg assembler in the skill yet — the working proof is
+one programme's `render_preview.py`. Generalising it against a baked grade is what would make this a
+first-class backend rather than a documented route.
 
 ```
      planners  ──►  timeline IR (JSON)  ──┬──►  Resolve backend   (Python, live API)

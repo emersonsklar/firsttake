@@ -1,6 +1,6 @@
 ---
 name: film-shoot
-description: Use when planning, prepping, running, or debriefing a video shoot where the user is responsible for the recording — camera and audio settings, lighting placement, on-set checklists, footage QC, verified card offload and archiving, or a delivery spec for a post house. Also use for the post work on that footage — syncing angles that share no timecode, transcripts and speaker attribution, loudness and audio mastering, cutting, matching two cameras' colour or identifying a log format, and assembling an edit by script in DaVinci Resolve (recommended) or Premiere Pro (early access), including handing a cut to someone who uses the other one. Also use when the user says they have a shoot coming up, asks for a checklist or set diagram, wants test footage analysed, or wants to offload and verify cards. Works with any camera, recorder, mic and drive, and with either NLE; it measures the user's own gear rather than assuming a kit.
+description: Use when planning, prepping, running, or debriefing a video shoot where the user is responsible for the recording — camera and audio settings, lighting placement, on-set checklists, footage QC, verified card offload and archiving, or a delivery spec for a post house. Also use for the post work on that footage — syncing angles that share no timecode, transcripts and speaker attribution, loudness and audio mastering, cutting, matching two cameras' colour or identifying a log format, and assembling an edit by script in DaVinci Resolve (recommended) or Premiere Pro (early access) — or with no NLE at all, since none of this needs paid software — including handing a cut to someone who uses the other one. Also use when the user says they have a shoot coming up, asks for a checklist or set diagram, wants test footage analysed, or wants to offload and verify cards. Works with any camera, recorder, mic and drive, and with either NLE; it measures the user's own gear rather than assuming a kit.
 ---
 
 # Film shoot
@@ -83,7 +83,7 @@ ISO was two stops off the assumed value. Measured on the body beats printed.
 | Copying cards safely, archiving, chain of custody | `references/offload-protocol.md` |
 | Reading `shootcheck` output without over- or under-reacting | `references/qc-interpretation.md` |
 | **After the offload** — syncing angles, transcripts, speaker attribution, loudness, rough cuts, **subtitles**, reviewer documents | `references/post-production.md` |
-| **Assembling a project** — which NLE, what each can and cannot do, and handing a cut to someone using the other one. **Recommends Resolve**; Premiere is early access | `references/nle-backends.md` |
+| **Assembling a project** — which NLE, what each can and cannot do, and handing a cut to someone using the other one. **Recommends Resolve**; Premiere is early access. Also: finishing with **no NLE at all**, which needs nothing paid | `references/nle-backends.md` |
 | The **DaVinci Resolve** dialect — its scripting API, Fusion animation, crops that survive proxy/original | `references/resolve-api.md` |
 | The **Premiere Pro** dialect ⚠️ *early access* — the UXP API, the transaction model, native keyframes | `references/premiere-uxp.md` |
 | **Where the Premiere backend actually stands**, what is proven, and the next step | `references/PREMIERE-STATUS.md` |

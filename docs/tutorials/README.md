@@ -14,7 +14,7 @@ Every number here was measured on that work or on the tests around it. Where som
 | 3 | [On the day](03-on-the-day.md) | Nothing may require attention after "rolling", so redundancy is weighted heavily and cleverness at zero. |
 | 4 | [Footage QC and verified offload](04-qc-and-verified-offload.md) | A drive whose real read rate is 3.32 GB/s reported 10.43. If the number beats the hardware, you timed RAM. |
 | 5 | [Post, end to end](05-post-end-to-end.md) | Thirteen phrase trims of 1.75–4.00 dB delivered a median of 0.4 dB, because they were applied ahead of the limiter. |
-| 6 | [Assembling the timeline by script, in either NLE](06-timeline-by-script.md) | A backend that cannot do something must FAIL, never approximate — a dropped ease still looks like a finished timeline. **Use Resolve if you can; Premiere is early access.** |
+| 6 | [Assembling the timeline by script, in either NLE](06-timeline-by-script.md) | A backend that cannot do something must FAIL, never approximate — a dropped ease still looks like a finished timeline. **Use Resolve if you can; Premiere is early access — and with neither, ffmpeg still delivers a full-quality master.** |
 | 7 | [A field guide to quiet failures](07-quiet-failures.md) | A render reported "Complete" and contained 8 frames of 26688. Start here when something says it worked and didn't. |
 | 8 | [Working conversationally — small edits by chat](08-working-conversationally.md) | His timecodes are search hints. Measure the real boundary near them and report the delta. |
 | 9 | [Deriving social cuts from a long interview](09-social-cuts.md) | A crop chosen from 92 probes over 23 s was reused on 62 s and would have clipped her head by 68 px. |

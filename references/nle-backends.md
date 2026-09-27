@@ -17,14 +17,97 @@ Not a preference — a materially shorter path with less that can go wrong:
 | | Resolve | Premiere |
 |---|---|---|
 | how a build is driven | a **Python module**, from a shell | a **UXP panel inside the app**, fed a job folder |
-| manual steps per build | open the app | open the app, load the plugin, and **reload it after any backend change** |
+| manual steps per build | open the app | open the app and load the plugin (build logic lives in Python now, so a **reload is only needed when the panel itself changes**) |
 | colour | scripted — CDL and LUT | 🔴 **not scriptable at all.** Pre-render the grade into the media |
 | retime | scripted | 🔴 not scriptable. Retime the media first |
-| transitions | Fusion comp | 🔴 not implemented here yet |
+| transitions | Fusion comp | native — proven by measuring a render |
 | animation, exact 29.97 | Fusion comp / committed preset | native, and exact |
 
 Premiere is better at two things and worse at the ones that cost you time. If nobody is forcing the
 choice, **Resolve finishes the job with fewer moving parts.**
+
+## 💸 You do not have to buy anything to finish a video
+
+The two backends above drive an application you own. Neither is required.
+
+| what you have | what you get |
+|---|---|
+| **Resolve Studio** | everything: scripted build, scripted colour, editable timeline |
+| **Premiere Pro** | scripted build and an editable timeline; the grade must be baked into the media first (early access) |
+| **Resolve free** | ⚠️ probably no scripted build — see below. The ffmpeg route works |
+| **nothing at all** | a correct, full-quality master via ffmpeg. No editable timeline |
+
+⚠️ **Resolve free: the scripting API is not the problem, external scripting probably is.** Contrary
+to the usual folk wisdom, Blackmagic's own `Developer/Scripting/README.md` says the API "cover[s] a
+common superset of functions for both the **Free and Studio** versions" — Studio-only *functions*
+return False rather than being absent. But the preference that lets an outside script connect is
+documented as a Studio one: *"**In DaVinci Resolve Studio**, Preferences > System > General, you can
+configure: External scripting"*.
+
+🔴 **That is UNVERIFIED and labelled so on purpose.** Suggestive wording in a README is not a
+measurement, and it has not been tested on a free installation. Settle it in one command on a
+machine that has one:
+
+```bash
+python3 scripts/resolve_connect.py --check     # prints the product name and whether connect worked
+```
+
+If that connects on free Resolve, external scripting is **not** Studio-gated, the note above is
+wrong, and it should be corrected here. If it returns None on a running, unblocked free Resolve,
+the answer is settled the other way.
+
+**If a free-Resolve backend is ever needed, the shape is already known.** Internal scripting —
+Workspace > Console, Workspace > Scripts, render scripts — is not described as Studio-gated
+anywhere. That is exactly how the Premiere backend works: a runtime inside the application, taking
+its orders from a job folder on disk. Premiere has no external scripting either, and
+`premiere_bridge.py` is the transport to copy.
+
+## Finishing with no NLE at all
+
+Everything except the timeline assembly is already ffmpeg and needs no NLE, no licence and no
+application: offload and verification, QC, sync, transcription and alignment, subtitles, loudness
+mastering, LUT fitting, log→view LUTs, speed ramps with real motion blur, graphic conforming, and
+the day sheets. The plan — the same IR both backends build from — is just JSON.
+
+So the assembly can be done with ffmpeg too, and the result is a real deliverable.
+
+**What you give up is the editable timeline, not the quality.** You cannot nudge a cut by hand
+afterwards; you change the plan and re-assemble. For a scripted programme that is often no loss at
+all.
+
+### 🔴 The one condition, and it is not fussiness
+
+**The grade must be baked into the media ONCE, before assembly — never re-applied during it.**
+
+This is measured, and it was expensive. An ffmpeg pipeline built from the same edit structure agreed
+with Resolve on geometry to **r ≥ 0.9989** and was still **14–18% out in the grade**. Eight review
+renders that had already been approved were not showing what the NLE produced. Two implementations
+of one colour transform will not agree, and nothing warns you — the picture looks fine.
+
+So there must be exactly one colour pipeline:
+
+```bash
+# 1. compose the CDL into the camera's vendor LUT, so ONE transform does everything
+python3 scripts/bake_cdl_into_lut.py --lut vendor.cube --cdl shot.cdl --out baked.cube --verify-key A
+
+# 2. apply that single LUT once, producing a graded intermediate at FULL raster
+#    (full raster, so the reframe still happens at assembly and stays verifiable there)
+
+# 3. assemble the plan against the graded media, with ffmpeg doing no colour maths at all
+```
+
+Declare the result in the plan's `baked` list. That is the same discipline Premiere already needs,
+because Premiere cannot script colour either — so this path is not a lesser sibling, it is the
+majority case.
+
+### What is NOT finished here
+
+⚠️ There is **no general `assemble_with_ffmpeg.py` in this skill yet**. The proof that it works is
+`render_preview.py` in one delivered programme's folder, which composites picture, two alpha tracks and audio
+from the plan and verifies its own frame count — but it is written for that programme, and its own
+docstring says it is *not* for judging colour, because at the time it was re-implementing the grade
+rather than consuming a baked one. Generalising it, against a baked grade, is the work that would
+make this route a first-class backend rather than a documented possibility.
 
 ## ⚠️ Premiere support is EARLY ACCESS
 
@@ -32,8 +115,10 @@ It works — a real 2228-frame vertical short was rebuilt from the same plan tha
 Resolve master and matched it to a mean **0.83 codes of 255** — but treat it as early access, and
 expect to meet its edges:
 
-- **Three capabilities are simply absent**: colour, retime, transitions. The gate refuses a plan
-  that needs them rather than approximating, so you find out before a render, not after.
+- **Two capabilities are simply absent**: colour and retime. The gate refuses a plan that needs
+  them rather than approximating, so you find out before a render, not after. (Transitions ARE
+  supported — but note that nothing in the timeline can verify one, so their geometry is checked by
+  rendering and measuring luma. See `PREMIERE-STATUS.md`.)
 - **A failed build leaves a half-finished sequence.** Each clip is its own transaction and there is
   no rollback across a build, so delete the sequence and start again rather than inspecting a mix
   of two runs.

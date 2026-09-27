@@ -110,9 +110,22 @@ timeline.
 
 ✅ **If you have a choice, use Resolve.** It is driven by a Python module from a shell, it has
 driven every delivered programme here, and it can script the grade. ⚠️ **Premiere support is early
-access**: it is driven by a panel inside the app that must be reloaded after any backend change, and
-three things are simply absent — colour, retime, transitions. It works, and it will show you its
-edges.
+access**: it is driven by a panel inside the app, and two things are simply absent — colour and
+retime. It works, and it will show you its edges.
+
+💸 **And you do not have to buy anything.** Everything except the timeline assembly is ffmpeg and
+needs no application at all: offload and verification, QC, sync, transcription, subtitles, loudness
+mastering, LUT fitting, speed ramps, graphic conforming, day sheets. The assembly can be ffmpeg too,
+and it produces a **full-quality master, not a proxy** — what you give up is the editable timeline
+afterwards, not the quality. One condition, and it is measured rather than cautious: the grade must
+be baked into the media **once**, never re-applied during assembly. Two implementations of one
+colour transform agreed on geometry to r ≥ 0.9989 and were still 14–18% out in the grade, which is
+how eight approved review renders turned out not to show what the NLE produced.
+
+⚠️ **Resolve free** probably cannot be driven from a shell — the API covers both editions, but the
+preference that lets an outside script connect is documented as Studio-only. That is unverified;
+`scripts/resolve_connect.py --check` settles it on a machine that has the free version. Either way
+the ffmpeg route is there.
 
 Each application is better at something, and the differences are not small. Resolve can script
 colour; **Premiere cannot script colour at all** — neither an ASC CDL nor a LUT — so a graded
@@ -242,6 +255,10 @@ pip3 install numpy xxhash ascmhl pymupdf     # xxhash/ascmhl/pymupdf optional
 
 Requirements: `python3`, `ffmpeg`/`ffprobe`, `numpy`. Optional: `xxhash` (faster hashing),
 `ascmhl` (generation-chained manifests), `pymupdf` (PDF page verification).
+
+**No NLE is required, and nothing here is paid.** DaVinci Resolve Studio or Premiere Pro buys you an
+editable timeline at the end; without either, the same plan assembles with ffmpeg to a full-quality
+master. See `references/nle-backends.md`, "Finishing with no NLE at all".
 
 ---
 
