@@ -132,6 +132,80 @@ CAPABILITIES = {
         # .epr. The shipped presets are PINNED to 1920x1080 -- see make_export_preset.py.
         "render":          True,
     },
+    # ffmpeg — no NLE, no licence, no application. `assemble_ffmpeg.py`.
+    #
+    # 🔴 THIS BACKEND PRODUCES NO EDITABLE TIMELINE. That is its only real cost, and it is a
+    # deliberate trade rather than a gap: everything else in this pipeline is already ffmpeg, so a
+    # person who owns nothing can still finish a programme. To change a cut you change the plan and
+    # re-assemble, which is how the scripted programmes here were built anyway.
+    #
+    # ⚠️ And it is the ONE backend that can be wrong while looking right, because there is no
+    # application to read the result back out of. A timeline can be interrogated; a file can only be
+    # MEASURED. So every capability below is earned by measuring the rendered file, and the
+    # verification is a bigger part of this backend than the assembly.
+    "ffmpeg": {
+        # CONFIRMED 2026-09-27 by `assemble_ffmpeg.py --selfcheck`, which builds sources whose LUMA
+        # ENCODES the clip index and source frame number, assembles, and then reads luma back for
+        # every frame of the result. So the assertion is "source frame S is at timeline frame T",
+        # not "the file is the right length".
+        # ⚠️ The check was itself checked: an in-point deliberately shifted by 2 frames — identical
+        # placement, identical length, so no count-based test could see it — was caught on frame 0.
+        "clip":            True,
+        # CONFIRMED: a gradient source cropped to a named band reads the same luma as ffmpeg
+        # cropping that rectangle directly, AND differs from the uncropped frame — the second half
+        # matters, because without it a no-op crop would pass the first.
+        "crop":            True,
+        # CONFIRMED, and it took a real bug to get there: `fade`'s `st`/`d` are SECONDS, so passing
+        # the plan's frame counts made a 20-frame fade a 20-SECOND one. The ramp was 4% in at frame
+        # 25 and the overlay was invisible. A selftest asserting the filter STRING contained the
+        # right number passed the whole time; only the rendered luma caught it.
+        # Now emitted as start_frame/nb_frames, and the selftest asserts the UNITS.
+        "fade_linear":     True,
+        # CONFIRMED: an overlay track composited over a base, with an alpha ramp that is monotonic
+        # across its 20 frames and lands on neither end at its midpoint (a fade that jumps is not a
+        # fade).
+        "alpha_track":     True,
+        # CONFIRMED: a disabled clip becomes its own length of black rather than being skipped.
+        # 🔴 Skipping it would slide every later clip earlier and still tile perfectly.
+        "clip_disable":    True,
+        # CONFIRMED: frames, raster, rate and duration measured on the output with -count_frames.
+        # `nb_frames` metadata is NOT trusted — it has been wrong in exactly the case this backend
+        # creates, a concatenated stream with discontinuous timestamps.
+        # ✅ And confirmed on a REAL PROGRAMME: a shipped 2228-frame vertical short rebuilt from its
+        # own plan sits at mean absolute difference 1.08 codes of 255 against the delivered master
+        # over every frame, max 1.38, zero frames over 5. Part of that residual is the reference's
+        # own H.264 loss. Getting there caught a one-frame shift at the first concat boundary that
+        # nothing but a frame-by-frame comparison could see.
+        "render":          True,
+        # 🔴 NO COLOUR IN THE ASSEMBLER, on purpose, and this is the most important line here.
+        # ffmpeg CAN apply a LUT — `lut3d` exists. It is refused anyway, because the measured
+        # failure was not "ffmpeg cannot grade": an ffmpeg pipeline that re-implemented the colour
+        # transform agreed with Resolve on geometry to r >= 0.9989 and was still 14-18% out in the
+        # GRADE, and eight already-approved review renders were not showing what the NLE produced.
+        # Two implementations of one transform do not agree, and nothing warns you.
+        # So there is exactly one colour pipeline: bake the grade into the media first
+        # (`bake_cdl_into_lut.py`, then one LUT pass at full raster), declare it in the plan's
+        # `baked` list, and let the assembler do geometry and timing only.
+        # This is the same discipline Premiere already needs, so it is the majority case, not a
+        # lesser sibling.
+        "cdl":             False,
+        "lut":             False,
+        # ffmpeg's `fade` filter is linear only; an eased ramp needs an alpha expression, which is
+        # not written yet. Refused rather than silently delivered linear — a fade that lost its
+        # ease looks like a finished programme.
+        "fade_shaped":     False,
+        # No parameter animation yet. `zoompan` and expression-driven filters can do it, but a
+        # static value quietly standing in for a ramp is exactly the failure this table exists to
+        # prevent, so it stays False until it is built and measured.
+        "keyframes":       False,
+        # `xfade` provides cross-dissolve, fadeblack and fadewhite, which maps to all three of
+        # TRANSITIONS. Not built yet: xfade also needs the segment assembly to OVERLAP rather than
+        # concatenate, which is a different pipeline shape.
+        "transition":      False,
+        # `setpts`/`atempo` work, and `speed_ramp.py` already retimes media with real motion blur —
+        # which is the better answer anyway, and the one both other backends are told to use.
+        "speed":           False,
+    },
 }
 
 BACKENDS = tuple(CAPABILITIES)

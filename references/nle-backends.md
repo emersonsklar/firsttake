@@ -35,7 +35,7 @@ The two backends above drive an application you own. Neither is required.
 | **Resolve Studio** | everything: scripted build, scripted colour, editable timeline |
 | **Premiere Pro** | scripted build and an editable timeline; the grade must be baked into the media first (early access) |
 | **Resolve free** | ⚠️ probably no scripted build — see below. The ffmpeg route works |
-| **nothing at all** | a correct, full-quality master via ffmpeg. No editable timeline |
+| **nothing at all** | ✅ a full-quality master via `assemble_ffmpeg.py`, proven to 1.08 codes of 255 against a delivered programme. No editable timeline |
 
 ⚠️ **Resolve free: the scripting API is not the problem, external scripting probably is.** Contrary
 to the usual folk wisdom, Blackmagic's own `Developer/Scripting/README.md` says the API "cover[s] a
@@ -100,14 +100,32 @@ Declare the result in the plan's `baked` list. That is the same discipline Premi
 because Premiere cannot script colour either — so this path is not a lesser sibling, it is the
 majority case.
 
-### What is NOT finished here
+### ✅ It is a real backend now: `assemble_ffmpeg.py`
 
-⚠️ There is **no general `assemble_with_ffmpeg.py` in this skill yet**. The proof that it works is
-`render_preview.py` in one delivered programme's folder, which composites picture, two alpha tracks and audio
-from the plan and verifies its own frame count — but it is written for that programme, and its own
-docstring says it is *not* for judging colour, because at the time it was re-implementing the grade
-rather than consuming a baked one. Generalising it, against a baked grade, is the work that would
-make this route a first-class backend rather than a documented possibility.
+```bash
+python3 scripts/assemble_ffmpeg.py --plan cut.json --out master.mov
+python3 scripts/assemble_ffmpeg.py --selfcheck     # generate media, assemble, MEASURE the result
+```
+
+**Proven on a delivered programme.** A shipped 2228-frame vertical short was rebuilt from its own
+plan and compared to the delivered master frame by frame: **mean absolute difference 1.08 codes of
+255**, max 1.38, zero frames over 5. Part of that residual is the reference's own H.264 40 Mbps loss.
+
+Supported: `clip`, `crop`, `fade_linear`, `alpha_track`, `clip_disable`, `render`.
+Refused with reasons: `cdl`, `lut` (bake the grade first — see above), `fade_shaped`, `keyframes`,
+`transition`, `speed`. The gate refuses them by name rather than approximating.
+
+🔴 **Why the verification is bigger than the assembly.** The other two backends can be interrogated —
+ask the application what it built. A file cannot be asked anything, so this is the backend that can
+be wrong while looking completely right. `--selfcheck` builds sources whose **luma encodes the clip
+index and the source frame number** and reads it back per frame, so the assertion is "source frame S
+is at timeline frame T". It caught an in-point shifted by 2 frames — identical placement, identical
+length, invisible to any count-based check.
+
+⚠️ And one bug got past even that, which is worth knowing if you touch this: a stream-copy concat
+leaves discontinuous timestamps, `overlay` aligns by timestamp, and one frame vanished at the first
+boundary — a 94-frame card came out 93, everything after sat one frame early, the total was still
+exactly right, and the file played perfectly. Only comparing against a known-good master showed it.
 
 ## ⚠️ Premiere support is EARLY ACCESS
 

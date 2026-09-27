@@ -113,11 +113,12 @@ driven every delivered programme here, and it can script the grade. ⚠️ **Pre
 access**: it is driven by a panel inside the app, and two things are simply absent — colour and
 retime. It works, and it will show you its edges.
 
-💸 **And you do not have to buy anything.** Everything except the timeline assembly is ffmpeg and
-needs no application at all: offload and verification, QC, sync, transcription, subtitles, loudness
-mastering, LUT fitting, speed ramps, graphic conforming, day sheets. The assembly can be ffmpeg too,
-and it produces a **full-quality master, not a proxy** — what you give up is the editable timeline
-afterwards, not the quality. One condition, and it is measured rather than cautious: the grade must
+💸 **And you do not have to buy anything.** `assemble_ffmpeg.py` is a third backend that needs no
+application at all — as does everything else here: offload and verification, QC, sync, transcription,
+subtitles, loudness mastering, LUT fitting, speed ramps, graphic conforming, day sheets. It produces
+a **full-quality master, not a proxy**: a shipped 2228-frame short rebuilt from its own plan sits at
+**1.08 codes of 255** against the delivered master across every frame. What you give up is the
+editable timeline afterwards, not the quality. One condition, and it is measured rather than cautious: the grade must
 be baked into the media **once**, never re-applied during assembly. Two implementations of one
 colour transform agreed on geometry to r ≥ 0.9989 and were still 14–18% out in the grade, which is
 how eight approved review renders turned out not to show what the NLE produced.
