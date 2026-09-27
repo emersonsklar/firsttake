@@ -10,6 +10,45 @@ what they are dialects *of*.
 
 ---
 
+## ✅ Use DaVinci Resolve if you have a choice
+
+Not a preference — a materially shorter path with less that can go wrong:
+
+| | Resolve | Premiere |
+|---|---|---|
+| how a build is driven | a **Python module**, from a shell | a **UXP panel inside the app**, fed a job folder |
+| manual steps per build | open the app | open the app, load the plugin, and **reload it after any backend change** |
+| colour | scripted — CDL and LUT | 🔴 **not scriptable at all.** Pre-render the grade into the media |
+| retime | scripted | 🔴 not scriptable. Retime the media first |
+| transitions | Fusion comp | 🔴 not implemented here yet |
+| animation, exact 29.97 | Fusion comp / committed preset | native, and exact |
+
+Premiere is better at two things and worse at the ones that cost you time. If nobody is forcing the
+choice, **Resolve finishes the job with fewer moving parts.**
+
+## ⚠️ Premiere support is EARLY ACCESS
+
+It works — a real 2228-frame vertical short was rebuilt from the same plan that built the shipped
+Resolve master and matched it to a mean **0.83 codes of 255** — but treat it as early access, and
+expect to meet its edges:
+
+- **Three capabilities are simply absent**: colour, retime, transitions. The gate refuses a plan
+  that needs them rather than approximating, so you find out before a render, not after.
+- **A failed build leaves a half-finished sequence.** Each clip is its own transaction and there is
+  no rollback across a build, so delete the sequence and start again rather than inspecting a mix
+  of two runs.
+- **Anything not yet proven is refused by default.** `UNVERIFIED` blocks unless you pass
+  `--allow-unverified` deliberately. That is the feature, not an obstacle. As of 2026-09-26 nothing
+  is left UNVERIFIED for Premiere: every capability is either proven on a real timeline or marked
+  absent, so a plan either builds exactly or is refused by name.
+- **It has been run on exactly one machine and one version** — Premiere Pro 26.5.1.1 on macOS. Run
+  `premiere_bridge.py --probe` on yours before trusting any of it; the probe exists because several
+  of this API's behaviours were not what its own type declarations implied.
+
+Resolve, by contrast, has driven every delivered programme on this project.
+
+---
+
 ## The honest answer about "100% compatibility"
 
 Asked for feature-for-feature parity, the true answer has two halves, and conflating them is how a
@@ -49,23 +88,29 @@ say out loud that you are building on something unproven.
 
 ## What each backend can do
 
-`UNVERIFIED` means *the API declares it and nobody here has watched it work yet* — run the probe
-below and promote them one at a time, as each is actually seen to work end to end.
+**Nothing is `UNVERIFIED` here any more.** Every Premiere row is either proven on a real timeline or
+marked absent, so a plan either builds exactly or is refused by name. `UNVERIFIED` remains the
+resting state for anything added in future, and it blocks by default.
 
-✅ was earned by rebuilding a real 2228-frame vertical short in Premiere from the same plan that
-built the shipped Resolve master, rendering it, and comparing frames: **mean 0.83 codes of 255**,
-correlation ≥ 0.998, and the graphics-only frames (no crop, no grade) at **0.01–0.06 codes**, which
-is what proves the comparison was frame-aligned rather than merely plausible.
+Two kinds of evidence earned the ✅s, and they are different:
+
+- **placement, crop, alpha tracks, render** — by rebuilding a real 2228-frame vertical short from the
+  same plan that built the shipped Resolve master and comparing frames: mean **0.83 codes of 255**,
+  correlation ≥ 0.998, graphics-only frames at **0.01–0.06 codes** (which is what proves the
+  comparison was frame-aligned rather than merely plausible).
+- **fades, animation, disable** — by a purpose-built synthetic timeline
+  (`verify_premiere_backend.py`), because that short's fades are **rendered into its alpha tracks**
+  and so exercised nothing. A capability test has to plant the thing it tests.
 
 | IR feature | Resolve | Premiere | Notes |
 |---|---|---|---|
 | place a clip at a frame on a lane | ✅ | ✅ | out point is EXCLUSIVE in both.  Resolve batches; Premiere must set in/out on the ProjectItem then place, one clip at a time |
 | crop / reframe | ✅ | ✅ | read back 88.88888549 against 88.888889 asked.  both derived from the crop rectangle in source pixels, never from each other |
-| linear fade | ✅ | `UNVERIFIED` | Resolve `SetFades` (dict form only); Premiere opacity keyframes |
-| **shaped** fade | ❌ | `UNVERIFIED` | Resolve's `SetFades` is linear only — a shaped fade there needs a Fusion comp |
-| keyframed animation | ⚠️ Fusion comp | `UNVERIFIED` native | Resolve has **no** keyframe API on a timeline item; Premiere has `ComponentParam` keyframes |
-| transitions | ⚠️ Fusion comp | `UNVERIFIED` native | Resolve's `AddTransition` returned `None` for all 7 signatures tried |
-| disable one clip | ✅ | `UNVERIFIED` | in Resolve use `SetClipEnabled`; `SetTrackEnable` returns `True` and does nothing |
+| linear fade | ✅ | ✅ | keyframes landed at frames [0, 12, 71, 89] exactly.  Resolve `SetFades` (dict form only); Premiere opacity keyframes |
+| **shaped** fade | ❌ | ✅ | interpolation read [5,5,5,5] vs the linear clip's [0,0,0,0].  Resolve's `SetFades` is linear only — a shaped fade there needs a Fusion comp |
+| keyframed animation | ⚠️ Fusion comp | ✅ native | a Scale ramp 100→120 that moves.  Resolve has **no** keyframe API on a timeline item; Premiere has `ComponentParam` keyframes |
+| transitions | ⚠️ Fusion comp | 🔴 **not implemented** |  Resolve's `AddTransition` returned `None` for all 7 signatures tried |
+| disable one clip | ✅ | ✅ |  in Resolve use `SetClipEnabled`; `SetTrackEnable` returns `True` and does nothing |
 | full-length alpha graphics track | ✅ | ✅ |  the portable answer for titles and captions in both |
 | ASC CDL | ✅ | 🔴 **no** | pre-grade the media; there is no scripted colour in Premiere at all |
 | LUT | ✅ | 🔴 **no** | Resolve: only from inside its own library. Premiere: **also impossible** — `createSetInputLUTIDAction` wants an opaque ID, and Lumetri's 130 parameters include no string-typed one |

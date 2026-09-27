@@ -3,6 +3,29 @@
 You can hand over an **assembled project** rather than a folder of clips and a document describing what
 you wanted. That is worth doing: the timeline is the product.
 
+
+## ✅ Use Resolve if you have a choice — and read this before choosing Premiere
+
+Both backends build the same plan, and they are not the same amount of work.
+
+**Resolve** is driven by a Python module from a shell. It has driven every programme delivered on
+this project, and it can script the grade.
+
+⚠️ **Premiere support is EARLY ACCESS.** It works — a real 2228-frame vertical short was rebuilt
+from the same plan that built the shipped Resolve master and matched it to a mean **0.83 codes of
+255** — and it costs more to run:
+
+- it is driven by a **panel inside the application**, which has to be reloaded after any change to
+  the backend itself;
+- **colour cannot be scripted at all** — neither a CDL nor a LUT — so a graded cut has to arrive
+  with the grade already rendered into the media;
+- **retime and transitions are absent** too;
+- it has been exercised on **one machine and one version**, so run `premiere_bridge.py --probe`
+  on yours first.
+
+None of that makes it unusable. It makes it the choice you make when somebody else's editor is
+Premiere, rather than the default.
+
 It also means a cut that exists only in one application's dialect has to be rebuilt by hand to move. So
 the plan is the artefact, and the application is a backend.
 

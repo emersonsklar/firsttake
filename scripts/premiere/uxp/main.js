@@ -34,7 +34,7 @@ const ppro = require("premierepro");
 const uxp = require("uxp");
 
 const POLL_MS = 600;
-const PANEL_VERSION = "1.2.0-rpc";   // bump on every edit, so a stale panel is visible in --ping
+const PANEL_VERSION = "1.5.0-program";   // bump on every edit, so a stale panel is visible in --ping
 
 /* Premiere's internal time unit. Asserted against the running application in `probe` rather than
  * trusted: if this number is ever different, every frame position computed from it is wrong and
@@ -415,7 +415,7 @@ async function findParamByName(component, wanted) {
   return hits.length ? hits[0] : null;
 }
 
-async function describeChain(trackItem) {
+async function describeChain(trackItem, withKeyframes) {
   const chain = await trackItem.getComponentChain();
   const out = [];
   const n = chain.getComponentCount();
@@ -431,7 +431,43 @@ async function describeChain(trackItem) {
       } catch (e) {
         kf = "error: " + errString(e);
       }
-      params.push({ index: j, displayName: p.displayName, keyframable: kf });
+      const row = { index: j, displayName: p.displayName, keyframable: kf };
+
+      /* What a fade or an animated push-in actually BECAME on the timeline.
+       *
+       * Without this a readback can only say a parameter exists, which cannot tell a fade that
+       * took from one that silently did not — the failure mode this whole backend is written
+       * against. Times come back as ticks so they can be compared to an exact frame. */
+      if (withKeyframes) {
+        try {
+          row.timeVarying = p.isTimeVarying();
+          const times = p.getKeyframeListAsTickTimes() || [];
+          row.keyframeCount = times.length;
+          if (times.length) {
+            row.keyframes = [];
+            for (const t of times.slice(0, 24)) {
+              let v = null;
+              try {
+                const got = await p.getValueAtTime(t);
+                v = got && got.value;
+              } catch (e) { v = "unreadable"; }
+              // Interpolation IS readable, via the keyframe rather than the param. An earlier note
+              // in this repo claimed it was not, which understated what can be verified: a shaped
+              // fade can be proven, not merely assumed from a setter not complaining.
+              let interp = null;
+              try {
+                const k = p.getKeyframePtr(t);
+                interp = k ? await k.getTemporalInterpolationMode() : null;
+              } catch (e) { interp = "unreadable"; }
+              row.keyframes.push({ ticks: t.ticksNumber, seconds: t.seconds, value: v,
+                                   interpolation: interp });
+            }
+          }
+        } catch (e) {
+          row.keyframeError = errString(e).split("\n")[0];
+        }
+      }
+      params.push(row);
     }
     out.push({
       index: i,
@@ -647,7 +683,7 @@ async function opProbe(job) {
               durationSeconds: (await ti.getDuration()).seconds,
               inPointSeconds: (await ti.getInPoint()).seconds,
               outPointSeconds: (await ti.getOutPoint()).seconds,
-              components: await describeChain(ti),
+              components: await describeChain(ti, false),
             };
             break;
           }
@@ -912,6 +948,189 @@ async function opCall(job) {
     }
   }
   return { ok: true, steps: steps, final: describeValue(cur, !!job.describe) };
+}
+
+
+// -------------------------------------------------------------------------------------------
+// op: program — a tiny interpreter, so BUILD LOGIC LIVES IN PYTHON AND THIS FILE STOPS CHANGING
+//
+// Why this exists: every change to the build had to be made in here, and a change in here needs a
+// manual reload in the UXP Developer Tool. That cost the operator a click for every iteration of
+// mine, which is the wrong way round. The `call` op already removed that for *exploring* the API;
+// this removes it for *building*, which was the remaining two thirds of the reloads.
+//
+// A program is a list of steps sharing a named environment. Each step is one of:
+//
+//   {"get": "Project", "as": "P"}                 read a property (of `env.on` or the module)
+//   {"call": "getActiveProject", "on": "P", "as": "proj", "args": [...]}     call a method
+//   {"set": "position", "on": "kf", "value": {...}}                          assign a property
+//   {"cast": "ClipProjectItem", "on": "item", "as": "clip"}                  a narrowing cast
+//   {"transaction": "label", "steps": [...]}      lockedAccess + executeTransaction
+//   {"addAction": "act"}                          only valid inside a transaction
+//   {"describe": "proj", "as": "info"}            shape of a value, for the report
+//   {"require": "clip", "message": "..."}         fail loudly if a name is falsy
+//
+// Arguments and `value` resolve through `resolveArg`, so {"$": "name"} is an environment lookup,
+// {"$tick": 12, "fps": [30000,1001]} is a TickTime, {"$const": "Constants.MediaType.AUDIO"} is a
+// module constant.
+//
+// 🔴 The two rules from the header still bind, and the interpreter enforces what it can:
+// a transaction's steps must be SYNCHRONOUS (no `call` inside it may return a promise — that is
+// checked and thrown, because awaiting inside a transaction commits an empty one), and handles go
+// stale on a project mutation, so acquire inside the transaction that uses them.
+// -------------------------------------------------------------------------------------------
+
+function progResolve(a, env) {
+  if (a && typeof a === "object" && !Array.isArray(a)) {
+    if ("$" in a) {
+      if (!(a.$ in env)) throw new Error("no such name in the program: " + a.$);
+      return env[a.$];
+    }
+    if ("$tick" in a) return tickAt(a.$tick, exactFrameRate(a.fps || [30000, 1001]));
+    if ("$fps" in a) return exactFrameRate(a.$fps);
+    if ("$const" in a) {
+      let cur = ppro;
+      for (const part of String(a.$const).split(".")) cur = cur[part];
+      if (cur === undefined) throw new Error("no such constant: " + a.$const);
+      return cur;
+    }
+    if ("$pointf" in a) return new ppro.PointF(a.$pointf[0], a.$pointf[1]);
+    if ("$rectf" in a) {
+      const r = new ppro.RectF();
+      r.width = a.$rectf[0];
+      r.height = a.$rectf[1];
+      return r;
+    }
+    const out = {};
+    for (const k of Object.keys(a)) out[k] = progResolve(a[k], env);
+    return out;
+  }
+  if (Array.isArray(a)) return a.map((x) => progResolve(x, env));
+  return a;
+}
+
+function progTarget(step, env) {
+  if (step.on === undefined) return ppro;
+  if (typeof step.on === "string") {
+    if (!(step.on in env)) throw new Error("step targets unknown name " + JSON.stringify(step.on));
+    return env[step.on];
+  }
+  return progResolve(step.on, env);
+}
+
+/* One step. `sync` is true inside a transaction, where a promise is a bug rather than a wait. */
+function progStep(step, env, sync, trace) {
+  const rec = { op: Object.keys(step)[0], as: step.as };
+
+  if ("transaction" in step) {
+    if (sync) throw new Error("a transaction cannot be nested inside a transaction");
+    let ran = false;
+    lockedTransaction(env.__project, step.transaction, (compound) => {
+      ran = true;
+      env.__compound = compound;
+      for (const sub of step.steps || []) {
+        trace.push(progStep(sub, env, true, trace));
+      }
+      delete env.__compound;
+    });
+    rec.ranSteps = (step.steps || []).length;
+    rec.committed = ran;
+    return rec;
+  }
+
+  if ("addAction" in step) {
+    if (!env.__compound) throw new Error("addAction outside a transaction");
+    const act = progResolve({ $: step.addAction }, env);
+    if (!act) throw new Error("addAction on a falsy value: " + step.addAction);
+    env.__compound.addAction(act);
+    rec.added = true;
+    return rec;
+  }
+
+  if ("require" in step) {
+    const v = env[step.require];
+    if (!v) throw new Error(step.message || ("required value is falsy: " + step.require));
+    rec.ok = true;
+    return rec;
+  }
+
+  if ("describe" in step) {
+    const v = progResolve({ $: step.describe }, env);
+    rec.value = describeValue(v, !!step.deep);
+    if (step.as) env[step.as] = v;
+    return rec;
+  }
+
+  let value;
+  if ("get" in step) {
+    value = progTarget(step, env)[step.get];
+  } else if ("set" in step) {
+    const t = progTarget(step, env);
+    t[step.set] = progResolve(step.value, env);
+    rec.set = step.set;
+    return rec;
+  } else if ("cast" in step) {
+    const t = progTarget(step, env);
+    value = ppro[step.cast].cast(t);
+    if (!value) throw new Error("cast to " + step.cast + " returned nothing");
+  } else if ("call" in step) {
+    const t = progTarget(step, env);
+    const fn = t[step.call];
+    if (typeof fn !== "function") {
+      throw new Error(step.call + " is " + typeof fn + " on this target, not a function");
+    }
+    value = fn.apply(t, (step.args || []).map((x) => progResolve(x, env)));
+  } else {
+    throw new Error("unknown step: " + JSON.stringify(step).slice(0, 120));
+  }
+
+  if (value && typeof value.then === "function") {
+    if (sync) {
+      throw new Error(step.call + " returned a promise inside a transaction. Awaiting there "
+        + "commits an EMPTY transaction — hoist it out.");
+    }
+    return { rec: rec, promise: value };
+  }
+  if (step.as) env[step.as] = value;
+  rec.type = typeof value;
+  return rec;
+}
+
+async function opProgram(job) {
+  const env = Object.create(null);
+  const trace = [];
+  const project = await activeProject();
+  env.__project = project;
+  env.project = project;
+
+  const steps = job.steps;
+  if (!Array.isArray(steps)) throw new Error("program needs a 'steps' array");
+
+  for (let i = 0; i < steps.length; i++) {
+    const step = steps[i];
+    try {
+      const r = progStep(step, env, false, trace);
+      if (r && r.promise) {
+        const v = await r.promise;
+        if (step.as) env[step.as] = v;
+        r.rec.awaited = true;
+        r.rec.type = typeof v;
+        trace.push(r.rec);
+      } else {
+        trace.push(r);
+      }
+    } catch (e) {
+      return { ok: false, error: "step " + i + " (" + JSON.stringify(step).slice(0, 160) + "): "
+               + errString(e).split("\n")[0], step: i, trace: trace };
+    }
+  }
+
+  const named = {};
+  for (const k of Object.keys(env)) {
+    if (k.startsWith("__")) continue;
+    named[k] = describeValue(env[k], false);
+  }
+  return { ok: true, steps: steps.length, trace: trace, env: named };
 }
 
 
@@ -1206,6 +1425,22 @@ async function opBuild(job) {
     for (let n = 0; n < track.nodes.length; n++) {
       const node = track.nodes[n];
       const where = track.id + "#" + n;
+
+      /* 🔴 Refuse an unimplemented node kind HERE, by name.
+       *
+       * `transition` is a node kind the IR defines and this backend has no code for. Without this
+       * check it failed anyway — `plan.media[undefined]` is undefined, so it died with "imported
+       * media not found", which sends whoever reads it looking for a missing file that was never
+       * the problem. A capability table that says UNVERIFIED while the builder has nothing at all
+       * is the same lie the grade gap was: checked against what the API can do, not what this file
+       * does. */
+      if (node.kind !== "clip" && node.kind !== "graphic") {
+        throw new Error(where + ": node kind " + JSON.stringify(node.kind) + " is defined in the "
+          + "IR but NOT IMPLEMENTED in this backend. Refusing rather than failing obscurely. "
+          + "Implement it, or set it False in nle_ir.CAPABILITIES so the gate stops the plan "
+          + "before it reaches here.");
+      }
+
       const mediaPath = plan.media[node.media];
       const item = index.byPath[mediaPath];
       if (!item) {
@@ -1521,13 +1756,22 @@ async function applyFade(project, trackItem, node, plan, fr, report, where) {
   const supported = await p.param.areKeyframesSupported();
   if (!supported) throw new Error(where + ": Opacity reports keyframes unsupported.");
 
+  /* 🔴 THE SHAPE GOES ON BOTH ENDS OF A RAMP, NOT JUST THE FAR ONE.
+   *
+   * A segment takes its interpolation from the keyframe it LEAVES FROM. The first version put the
+   * mode only on the second point of each pair, so a read-back showed [0, 5, 0, 5]: every ramp
+   * still departed from a LINEAR keyframe and the ease did nothing to the visible curve. It passed
+   * a test asserting only that the modes "differ from the linear clip", which is how a weak
+   * assertion launders a real defect.
+   */
   const pts = [];
   const last = node.len - 1;
   if (node.fade.in) {
-    pts.push({ f: 0, v: 0 }, { f: node.fade.in.frames, v: 100, shape: node.fade.in.shape });
+    pts.push({ f: 0, v: 0, shape: node.fade.in.shape },
+             { f: node.fade.in.frames, v: 100, shape: node.fade.in.shape });
   }
   if (node.fade.out) {
-    pts.push({ f: last - node.fade.out.frames, v: 100 },
+    pts.push({ f: last - node.fade.out.frames, v: 100, shape: node.fade.out.shape },
              { f: last, v: 0, shape: node.fade.out.shape });
   }
 
@@ -1536,21 +1780,37 @@ async function applyFade(project, trackItem, node, plan, fr, report, where) {
    * nothing errors — the same failure shape as Fusion's COMPN_GlobalStart. */
   const base = plan.keyframe_time_base === "sequence" ? node.rec : 0;
 
+  /* 🔴 A KEYFRAME CARRIES ITS OWN POSITION, AND `createKeyframe` DOES NOT SET IT.
+   *
+   * This asked for four opacity keyframes and got ONE. `createKeyframe(value)` returns a keyframe
+   * at the default position, so every one landed at the same instant and each replaced the last —
+   * a "fade" that is a single static value. `Keyframe.position` is a read/write TickTime; set it
+   * before adding.
+   *
+   * And interpolation belongs on the keyframe too: `setTemporalInterpolationMode` with
+   * `Keyframe.INTERPOLATION_MODE_*`. It is ASYNC, so it has to happen out here, before the lock —
+   * which is why the keyframes are fully built first and only added inside it.
+   */
+  const built = [];
+  for (const pt of pts) {
+    const kf = p.param.createKeyframe(pt.v);
+    kf.position = tickAt(base + pt.f, fr);
+    const shaped = pt.shape && pt.shape !== "linear";
+    try {
+      await kf.setTemporalInterpolationMode(shaped
+        ? ppro.Keyframe.INTERPOLATION_MODE_BEZIER
+        : ppro.Keyframe.INTERPOLATION_MODE_LINEAR);
+    } catch (e) {
+      report.warnings.push(where + ": could not set interpolation on the keyframe at frame "
+        + pt.f + " (" + errString(e).split("\n")[0] + ")");
+    }
+    built.push({ kf: kf, f: pt.f, shaped: !!shaped });
+  }
+
   lockedTransaction(project, "film-shoot: fade " + where, (cc) => {
     cc.addAction(p.param.createSetTimeVaryingAction(true));
-    for (const pt of pts) {
-      cc.addAction(p.param.createAddKeyframeAction(p.param.createKeyframe(pt.v)));
-    }
-  });
-
-  // interpolation, after the keyframes exist
-  lockedTransaction(project, "film-shoot: fade shape " + where, (cc) => {
-    for (const pt of pts) {
-      const mode = (pt.shape && pt.shape !== "linear")
-        ? ppro.Constants.InterpolationMode.BEZIER
-        : ppro.Constants.InterpolationMode.LINEAR;
-      cc.addAction(p.param.createSetInterpolationAtKeyframeAction(
-        tickAt(base + pt.f, fr), mode, true));
+    for (const b of built) {
+      cc.addAction(p.param.createAddKeyframeAction(b.kf));
     }
   });
 
@@ -1585,11 +1845,27 @@ async function applyKeyframes(project, trackItem, node, plan, fr, report, where)
       throw new Error(where + ": " + set.param + " does not support keyframes.");
     }
 
+    // Position each keyframe before adding it — see the note in applyFade. Without this every
+    // point lands at the same instant and the last one wins, so an animation becomes a constant.
+    const pts = [];
+    for (const pt of set.points) {
+      const kf = target.param.createKeyframe(pt.value);
+      kf.position = tickAt(base + pt.frame, fr);
+      if (pt.interpolation && pt.interpolation !== "linear") {
+        try {
+          await kf.setTemporalInterpolationMode(ppro.Keyframe.INTERPOLATION_MODE_BEZIER);
+        } catch (e) {
+          report.warnings.push(where + ": interpolation on " + set.param + " frame " + pt.frame
+            + " not set (" + errString(e).split("\n")[0] + ")");
+        }
+      }
+      pts.push(kf);
+    }
+
     lockedTransaction(project, "film-shoot: keyframes " + set.param + " " + where, (cc) => {
       cc.addAction(target.param.createSetTimeVaryingAction(true));
-      for (const pt of set.points) {
-        cc.addAction(target.param.createAddKeyframeAction(
-          target.param.createKeyframe(pt.value)));
+      for (const kf of pts) {
+        cc.addAction(target.param.createAddKeyframeAction(kf));
       }
     });
 
@@ -1663,7 +1939,8 @@ async function opReadback(job) {
         outPointSeconds: (await ti.getOutPoint()).seconds,
         disabled: await ti.isDisabled(),
         speed: await ti.getSpeed(),
-        components: job.with_components ? await describeChain(ti) : undefined,
+        components: job.with_components ? await describeChain(ti, !!job.with_keyframes)
+                                       : undefined,
       });
     }
     out.tracks.push({ askedIndex: i, reportedIndex: await tr.getIndex(),
@@ -1712,6 +1989,7 @@ const OPS = {
   probe_filter: opProbeFilter,
   probe_surface: opProbeSurface,
   call: opCall,
+  program: opProgram,
   build: opBuild,
   readback: opReadback,
   render: opRender,

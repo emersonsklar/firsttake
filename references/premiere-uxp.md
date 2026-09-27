@@ -7,6 +7,12 @@ everyone editing this footage uses the same NLE.
 Read `nle-backends.md` first for how the two fit together. This file is the Premiere dialect and
 its traps.
 
+> ⚠️ **EARLY ACCESS.** This backend works and has reproduced a shipped master to a mean 0.83 codes
+> of 255 — and it is newer, thinner and more manual than the Resolve one. Colour, retime and
+> transitions are absent; a build is driven from a panel that needs reloading after any change to it;
+> and everything here has been exercised on one machine and one version. **If you have a choice of
+> application, `nle-backends.md` recommends Resolve, and means it.**
+
 **Provenance, because it decides how much you may trust each line below.**
 
 | Label | What established it |

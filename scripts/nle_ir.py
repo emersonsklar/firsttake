@@ -93,10 +93,23 @@ CAPABILITIES = {
         # graphics-only frames (no crop, no grade) at 0.01-0.06 codes, which is what proves the
         # comparison was frame-aligned. Scale read back 88.88888549 against 88.888889 asked.
         "crop":            True,
-        "fade_linear":     "UNVERIFIED",  # AE.ADBE Opacity param 0 'Opacity', keyframable: true
-        "fade_shaped":     "UNVERIFIED",  # InterpolationMode.BEZIER = 5 at runtime
-        "keyframes":       "UNVERIFIED",  # ComponentParam.createAddKeyframeAction — native, no comp
-        "transition":      "UNVERIFIED",  # TransitionFactory + createAddVideoTransitionAction
+        # CONFIRMED 2026-09-26 by building a synthetic capability timeline and reading it back
+        # (verify_premiere_backend.py). Opacity keyframes landed at frames [0, 12, 71, 89] — exactly
+        # as asked — with values [0, 100, 100, 0].
+        "fade_linear":     True,
+        # CONFIRMED, and this one needed two attempts. Interpolation read [5, 5, 5, 5] against the
+        # linear clip's [0, 0, 0, 0]. The first attempt read [0, 5, 0, 5] and PASSED a weaker
+        # assertion: a segment takes its shape from the keyframe it LEAVES FROM, so every ramp still
+        # departed linear and the ease changed nothing visible.
+        "fade_shaped":     True,
+        # CONFIRMED: a Scale ramp 100 -> 120 that actually moves. The assertion is the SPAN, because
+        # two keyframes at one value is a static value with extra steps.
+        "keyframes":       True,
+        # 🔴 NOT IMPLEMENTED, not merely unproven. The API declares TransitionFactory and
+        # createAddVideoTransitionAction, but this backend has no code for a `transition` node, and
+        # UNVERIFIED reads as "probably works" — the same overclaim the grade gap was. The builder
+        # also refuses the node kind by name, so the two now agree.
+        "transition":      False,
         # 🔴 NO SCRIPTED COLOUR AT ALL, measured 2026-09-26 on 26.5.1.
         # `createSetInputLUTIDAction` wants an opaque ID, not a path, with no documented way to
         # obtain one. And AE.ADBE Lumetri exposes 130 parameters of which ZERO accept a string:
@@ -105,7 +118,7 @@ CAPABILITIES = {
         # The only route is to PRE-GRADE the media and declare it baked.
         "cdl":             False,
         "lut":             False,
-        "clip_disable":    "UNVERIFIED",  # createSetDisabledAction
+        "clip_disable":    True,           # createSetDisabledAction; read back disabled=True
         "alpha_track":     True,          # both full-length alpha tracks placed at frame 0
         "speed":           False,         # getSpeed() exists; no setter in the declarations
         # CONFIRMED: 2228 frames exactly, 1080x1920, 30000/1001, ProRes 422 HQ, via a generated
@@ -666,11 +679,30 @@ def selftest():
     pl = _good_plan(); pl["tracks"][0]["nodes"][0]["speed"] = 0.5
     expect("premiere refuses a speed change", capability_gate(pl, "premiere"), "Retime the media")
 
-    # UNVERIFIED must block by default and pass only when explicitly allowed
-    errs = capability_gate(_good_plan(), "premiere")
-    expect("premiere blocks on UNVERIFIED", errs, "UNVERIFIED")
-    errs = capability_gate(_good_plan(), "premiere", allow_unverified=True)
-    expect_clean("premiere with --allow-unverified", errs)
+    # UNVERIFIED must block by default and pass only when explicitly allowed.
+    #
+    # ⚠️ Tested against an INJECTED capability, not against whichever backend happens to have an
+    # unverified entry today. This assertion used to read the real Premiere table, and it broke the
+    # moment the last Premiere entry was promoted — the mechanism was fine and the test was
+    # measuring the wrong thing. A guard whose test depends on a transient state stops guarding
+    # silently.
+    CAPABILITIES["_test"] = dict(CAPABILITIES["resolve"])
+    CAPABILITIES["_test"]["clip"] = "UNVERIFIED"
+    try:
+        errs = capability_gate(_good_plan(), "_test")
+        expect("an UNVERIFIED capability blocks by default", errs, "UNVERIFIED")
+        expect("and the message says how to proceed anyway", errs, "allow-unverified")
+        expect_clean("--allow-unverified lets it through",
+                     capability_gate(_good_plan(), "_test", allow_unverified=True))
+    finally:
+        del CAPABILITIES["_test"]
+
+    # And the real tables must contain no UNVERIFIED that nobody has looked at in a while: this is
+    # informational, printed rather than asserted, because UNVERIFIED is a legitimate resting state.
+    for backend, caps in CAPABILITIES.items():
+        pending = sorted(k for k, v in caps.items() if v == "UNVERIFIED")
+        if pending:
+            print("  note: %s still UNVERIFIED for %r" % (", ".join(pending), backend))
 
     expect("unknown backend", capability_gate(_good_plan(), "flame"), "unknown backend")
 

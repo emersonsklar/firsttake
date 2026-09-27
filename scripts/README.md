@@ -24,6 +24,8 @@ tool they run confirms that access with GitHub and records a friend license.
 | `build_subtitles.py` | subtitles from forced-aligned words: programme-clock mapping, cue shaping to the delivery raster, and two cross-checks |
 | `bake_cdl_into_lut.py` | fold an ASC CDL into a vendor LUT so the grade survives an application that cannot script a CDL |
 | `nle_ir.py` | the NLE-neutral timeline plan: validate it, compare what each application can build, derive each one's crop parameters |
+| `premiere_program.py` | emit a Premiere build as a declarative PROGRAM, so build logic lives in Python and the panel stops needing reloads |
+| `verify_premiere_backend.py` | prove on a real timeline what the Premiere backend can do, with synthetic media |
 | `premiere_bridge.py` | drive Premiere Pro from Python through the UXP panel in `premiere/uxp/` — **`--probe` first** |
 | `nle_handover.py` | pack a cut for someone using the other NLE, and let them verify it arrived whole |
 | `scrub_check.py` | refuse to publish credentials or client-identifying material |
@@ -49,6 +51,8 @@ python3 make_export_preset.py --selftest
 python3 nle_ir.py --selftest
 python3 premiere_bridge.py --selftest
 python3 nle_handover.py --selftest
+python3 premiere_program.py --selftest
+python3 verify_premiere_backend.py --selftest
 python3 build_day_sheets.py --selftest
 python3 scrub_check.py --selftest
 python3 license_check.py --selftest

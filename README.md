@@ -94,7 +94,7 @@ rather than guess it — **size from ink height, family from width, weight from 
 ### Either NLE, and a cut that can change hands
 
 <div align="center">
-<sub><b>DaVinci Resolve</b> &nbsp;·&nbsp; <b>Premiere Pro</b> &nbsp;·&nbsp; one plan, two backends</sub>
+<sub><b>DaVinci Resolve</b> &nbsp;·&nbsp; <b>Premiere Pro</b> <i>(early access)</i> &nbsp;·&nbsp; one plan, two backends</sub>
 </div>
 
 The timeline is described once, in an application-neutral plan, and a backend turns it into one
@@ -107,6 +107,12 @@ something exactly, the build **stops and names it**. It never approximates. The 
 here was never "unsupported" — it is a build that reports success having quietly dropped the ease on
 a fade or flattened an animated push-in to its first value. Both of those look like a finished
 timeline.
+
+✅ **If you have a choice, use Resolve.** It is driven by a Python module from a shell, it has
+driven every delivered programme here, and it can script the grade. ⚠️ **Premiere support is early
+access**: it is driven by a panel inside the app that must be reloaded after any backend change, and
+three things are simply absent — colour, retime, transitions. It works, and it will show you its
+edges.
 
 Each application is better at something, and the differences are not small. Resolve can script
 colour; **Premiere cannot script colour at all** — neither an ASC CDL nor a LUT — so a graded
