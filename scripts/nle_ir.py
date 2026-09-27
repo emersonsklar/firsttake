@@ -105,11 +105,11 @@ CAPABILITIES = {
         # CONFIRMED: a Scale ramp 100 -> 120 that actually moves. The assertion is the SPAN, because
         # two keyframes at one value is a static value with extra steps.
         "keyframes":       True,
-        # 🔴 NOT IMPLEMENTED, not merely unproven. The API declares TransitionFactory and
-        # createAddVideoTransitionAction, but this backend has no code for a `transition` node, and
-        # UNVERIFIED reads as "probably works" — the same overclaim the grade gap was. The builder
-        # also refuses the node kind by name, so the two now agree.
-        "transition":      False,
+        # Implemented 2026-09-26 and NOT YET PROVEN, which is what UNVERIFIED means. It was False
+        # before that — accurately, because there was no code at all — and the distinction matters:
+        # False blocks even with --allow-unverified, which is right for "cannot" and wrong for
+        # "untested". That difference is what stopped this capability's own test from running.
+        "transition":      "UNVERIFIED",
         # 🔴 NO SCRIPTED COLOUR AT ALL, measured 2026-09-26 on 26.5.1.
         # `createSetInputLUTIDAction` wants an opaque ID, not a path, with no documented way to
         # obtain one. And AE.ADBE Lumetri exposes 130 parameters of which ZERO accept a string:
@@ -128,6 +128,14 @@ CAPABILITIES = {
 }
 
 BACKENDS = tuple(CAPABILITIES)
+
+# Transition types the IR understands, by intent rather than by vendor string. Each backend maps
+# these to whatever it calls them; a plan that names `AE.ADBE Cross Dissolve New` has baked one
+# application into the shared artefact, which is the thing this file exists to prevent.
+#
+# Kept deliberately short: these three are confirmed present in Premiere's own list and have obvious
+# equivalents elsewhere. Add one only when you can map it in BOTH backends.
+TRANSITIONS = ("cross_dissolve", "dip_to_black", "dip_to_white")
 
 # Which IR features each node kind requires. A node can need more than one.
 NODE_REQUIREMENTS = {
@@ -292,6 +300,29 @@ def validate(plan):
                         if node.get(bad) is not None:
                             errs.append("%s is on an AUDIO track but carries %r" % (where, bad))
 
+                trans = node.get("transition") or {}
+                if trans and not isinstance(trans, dict):
+                    errs.append("%s: 'transition' must be a dict of in/out" % where)
+                for side in ("in", "out"):
+                    # ⚠️ NOT `t` — that is the enclosing loop's track, and shadowing it here broke
+                    # the audio-track check twenty lines below with an AttributeError on None.
+                    tr = trans.get(side) if isinstance(trans, dict) else None
+                    if tr is None:
+                        continue
+                    tf = tr.get("frames")
+                    if not isinstance(tf, int) or tf < 1:
+                        errs.append("%s: transition %s frames must be a positive int"
+                                    % (where, side))
+                    if tr.get("type", "cross_dissolve") not in TRANSITIONS:
+                        errs.append("%s: transition %s type %r is not one this IR maps. Known: %s"
+                                    % (where, side, tr.get("type"), ", ".join(TRANSITIONS)))
+                    # A transition consumes handles from BOTH clips, so it cannot be longer than
+                    # either. Neither application warns; you get a shortened clip or a transition
+                    # that silently comes out a different length than asked.
+                    if isinstance(tf, int) and isinstance(ln, int) and tf > ln:
+                        errs.append("%s: transition %s is %d frames on a %d-frame clip"
+                                    % (where, side, tf, ln))
+
                 fade = node.get("fade") or {}
                 for side in ("in", "out"):
                     f = fade.get(side)
@@ -389,6 +420,8 @@ def capability_gate(plan, backend, allow_unverified=False):
                 check("fade_shaped" if shaped else "fade_linear", where + " fade " + side)
             if node.get("keyframes"):
                 check("keyframes", where)
+            if node.get("transition"):
+                check("transition", where, "Render the transition into the media, or cut hard.")
             grade = node.get("grade") or {}
             if grade.get("cdl"):
                 check("cdl", where, "Bake the CDL into a LUT, or pre-grade the media.")

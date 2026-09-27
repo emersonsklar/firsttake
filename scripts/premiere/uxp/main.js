@@ -34,7 +34,7 @@ const ppro = require("premierepro");
 const uxp = require("uxp");
 
 const POLL_MS = 600;
-const PANEL_VERSION = "1.5.0-program";   // bump on every edit, so a stale panel is visible in --ping
+const PANEL_VERSION = "1.7.0-transitions2";   // bump on every edit, so a stale panel is visible in --ping
 
 /* Premiere's internal time unit. Asserted against the running application in `probe` rather than
  * trusted: if this number is ever different, every frame position computed from it is wrong and
@@ -1073,6 +1073,14 @@ function progStep(step, env, sync, trace) {
     const t = progTarget(step, env);
     value = ppro[step.cast].cast(t);
     if (!value) throw new Error("cast to " + step.cast + " returned nothing");
+  } else if ("new" in step) {
+    // Some of this API is constructed rather than fetched — `AddTransitionOptions` is a bare
+    // constructor, and without this the interpreter could not express a transition at all.
+    const ctor = ppro[step["new"]];
+    if (typeof ctor !== "function") {
+      throw new Error(step["new"] + " is " + typeof ctor + ", not a constructor");
+    }
+    value = new ctor(...(step.args || []).map((x) => progResolve(x, env)));
   } else if ("call" in step) {
     const t = progTarget(step, env);
     const fn = t[step.call];
@@ -1495,6 +1503,7 @@ async function opBuild(job) {
        * So anything in a node that is not handled must stop the build. Refusing is cheap; a
        * plausible ungraded master is not. */
       if (node.grade) await applyGrade(project, placed, node, report, where);
+      if (node.transition) await applyTransition(project, tr, placed, node, fr, report, where);
       for (const key of Object.keys(node)) {
         if (HANDLED_NODE_KEYS.indexOf(key) === -1 && key.charAt(0) !== "_") {
           throw new Error(where + ": the plan carries " + JSON.stringify(key) + ", which this "
@@ -1624,7 +1633,8 @@ function trackIndexFor(track, plan) {
 /* Every node key this backend actually acts on. Anything else stops the build — see the note at
  * the call site. Keys beginning with "_" are commentary and are ignored by design. */
 const HANDLED_NODE_KEYS = ["kind", "media", "rec", "len", "src_in", "src_raster",
-                           "crop", "fade", "keyframes", "grade", "disabled", "speed"];
+                           "crop", "fade", "keyframes", "grade", "disabled", "speed",
+                           "transition"];
 
 
 /* Apply a LUT-only grade through Lumetri.
@@ -1693,6 +1703,93 @@ async function applyGrade(project, trackItem, node, report, where) {
   if (!got || String(got.value || "").indexOf(".cube") === -1) {
     report.warnings.push(where + ": set the LUT to " + grade.lut + " but it read back as "
       + JSON.stringify(got && got.value) + " — the grade may not have taken.");
+  }
+}
+
+
+/* Transitions, attached to a clip's start or end.
+ *
+ * The IR names them by intent (`cross_dissolve`) rather than by vendor string, so the plan is not
+ * carrying `AE.ADBE ...` around. This is the only place that mapping exists for Premiere.
+ *
+ * ⚠️ TWO WRONG TURNS HERE, both from reading the declarations instead of the runtime:
+ *
+ *   1. `hasTransition()` DOES NOT EXIST. The declarations carry a docstring saying "Returns true if
+ *      trackItem has transition" — attached to `createRemoveVideoTransitionAction`, a mismatched
+ *      comment in Adobe's own file. Calling it threw "is not a function".
+ *   2. The position constants are NOT `Constants.TransitionPosition` (absent at runtime). They are
+ *      `VideoTransition.TRANSITIONPOSITION_START` / `_END`.
+ *
+ * So verification counts TRANSITION track items — `getTrackItems(TrackItemType.TRANSITION, false)`
+ * — which is better evidence than a per-clip boolean would have been: it gives a count AND each
+ * transition's position, so "which end" is answerable after all.
+ *
+ * ⚠️ A transition consumes handles from BOTH clips it spans. `nle_ir` refuses one longer than its
+ * own clip, which is the case it can see; a clip with no handles beyond the cut can still come out
+ * shorter than asked, and only the read-back duration will show it.
+ */
+const TRANSITION_MATCH = {
+  cross_dissolve: "AE.ADBE Cross Dissolve New",
+  dip_to_black: "AE.ADBE Dip To Black",
+  dip_to_white: "AE.ADBE Dip To White",
+};
+
+async function applyTransition(project, track, trackItem, node, fr, report, where) {
+  const durBefore = (await trackItem.getDuration()).ticksNumber;
+  const before = (track.getTrackItems(ppro.Constants.TrackItemType.TRANSITION, false) || []).length;
+
+  for (const side of ["in", "out"]) {
+    const t = node.transition[side];
+    if (!t) continue;
+    const kind = t.type || "cross_dissolve";
+    const match = TRANSITION_MATCH[kind];
+    if (!match) {
+      throw new Error(where + ": no Premiere match name for transition type "
+        + JSON.stringify(kind) + ". Known: " + Object.keys(TRANSITION_MATCH).join(", "));
+    }
+
+    const applyToStart = side === "in";
+    lockedTransaction(project, "film-shoot: transition " + side + " " + where, (c) => {
+      const tr = ppro.TransitionFactory.createVideoTransition(match);
+      if (!tr) throw new Error(where + ": createVideoTransition(" + match + ") returned nothing");
+      const opts = new ppro.AddTransitionOptions();
+      opts.setApplyToStart(applyToStart);
+      opts.setDuration(tickAt(t.frames, fr));
+      c.addAction(trackItem.createAddVideoTransitionAction(tr, opts));
+    });
+  }
+
+  // Read back rather than trust: count the TRANSITION items on this track.
+  const items = track.getTrackItems(ppro.Constants.TrackItemType.TRANSITION, false) || [];
+  const asked = Object.keys(node.transition).filter((k) => node.transition[k]);
+  const durAfter = (await trackItem.getDuration()).ticksNumber;
+
+  const found = [];
+  for (const it of items) {
+    try {
+      found.push({ startTicks: (await it.getStartTime()).ticksNumber,
+                   durationTicks: (await it.getDuration()).ticksNumber });
+    } catch (e) { found.push({ error: errString(e).split("\n")[0] }); }
+  }
+
+  report.placed.push({ where: where, transition: {
+    asked: asked,
+    transitionsOnTrackBefore: before, transitionsOnTrackAfter: items.length,
+    added: items.length - before,
+    found: found,
+    durationTicksBefore: durBefore, durationTicksAfter: durAfter,
+    clipLengthChanged: durBefore !== durAfter,
+  } });
+
+  if (items.length - before !== asked.length) {
+    report.warnings.push(where + ": asked for " + asked.length + " transition(s) and the track "
+      + "gained " + (items.length - before) + ". createAddVideoTransitionAction returned without "
+      + "complaint, so the count is the only thing that knows.");
+  }
+  if (durBefore !== durAfter) {
+    report.warnings.push(where + ": the clip's duration CHANGED when the transition was added ("
+      + durBefore + " -> " + durAfter + " ticks). A transition eats handles; the cut is no longer "
+      + "where the plan put it.");
   }
 }
 
@@ -1939,12 +2036,23 @@ async function opReadback(job) {
         outPointSeconds: (await ti.getOutPoint()).seconds,
         disabled: await ti.isDisabled(),
         speed: await ti.getSpeed(),
+
         components: job.with_components ? await describeChain(ti, !!job.with_keyframes)
                                        : undefined,
       });
     }
+    // Transitions are their OWN track items, not a property of a clip: there is no
+    // hasTransition() anywhere in this API (the declarations' docstring saying so is attached to
+    // createRemoveVideoTransitionAction by mistake). Listing them gives a count and a position.
+    const trans = [];
+    for (const it of (tr.getTrackItems(ppro.Constants.TrackItemType.TRANSITION, false) || [])) {
+      try {
+        trans.push({ startTicks: (await it.getStartTime()).ticksNumber,
+                     durationTicks: (await it.getDuration()).ticksNumber });
+      } catch (e) { trans.push({ error: errString(e).split("\n")[0] }); }
+    }
     out.tracks.push({ askedIndex: i, reportedIndex: await tr.getIndex(),
-                      name: tr.name, nodes: nodes });
+                      name: tr.name, nodes: nodes, transitions: trans });
   }
   return out;
 }

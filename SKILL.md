@@ -86,6 +86,7 @@ ISO was two stops off the assumed value. Measured on the body beats printed.
 | **Assembling a project** — which NLE, what each can and cannot do, and handing a cut to someone using the other one. **Recommends Resolve**; Premiere is early access | `references/nle-backends.md` |
 | The **DaVinci Resolve** dialect — its scripting API, Fusion animation, crops that survive proxy/original | `references/resolve-api.md` |
 | The **Premiere Pro** dialect ⚠️ *early access* — the UXP API, the transaction model, native keyframes | `references/premiere-uxp.md` |
+| **Where the Premiere backend actually stands**, what is proven, and the next step | `references/PREMIERE-STATUS.md` |
 | **Two cameras that don't match**, identifying a log format, grading to a reference episode, deriving framing, reproducing a supplied graphics template | `references/grade-match.md` |
 | Templates to copy per shoot | `references/templates/` |
 | The tools themselves | `scripts/README.md` |

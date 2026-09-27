@@ -56,7 +56,7 @@ RASTER = (1920, 1080)
 
 # One clip per feature, each long enough that a fade cannot be confused with a whole clip.
 CLIPS = {"a": (90, "0x1E4D6B"), "b": (90, "0x6B1E4D"), "c": (90, "0x4D6B1E"),
-         "d": (90, "0x6B4D1E")}
+         "d": (90, "0x6B4D1E"), "e": (90, "0x1E6B4D")}
 
 
 def make_media() -> list[str]:
@@ -122,10 +122,15 @@ def plan(preset: str | None = None) -> dict:
                 # 4. a disabled clip
                 {"kind": "clip", "media": "d", "rec": 270, "len": 90, "src_in": 0,
                  "_feature": "clip_disable", "disabled": True},
+                # 5. a cross dissolve at the head. src_in is 10 so the clip HAS handles: a
+                #    transition eats them, and without any the clip would shorten instead.
+                {"kind": "clip", "media": "e", "rec": 360, "len": 70, "src_in": 10,
+                 "_feature": "transition",
+                 "transition": {"in": {"frames": 12, "type": "cross_dissolve"}}},
             ]},
         ],
         "render": ({"output": os.path.join(MEDIA, "capability.mov"), "preset": preset,
-                    "frames": 360} if preset else None),
+                    "frames": 430} if preset else None),
     }
 
 
@@ -152,10 +157,11 @@ def judge(seen: dict, want: dict) -> tuple[dict, list[str]]:
     for t in seen.get("tracks", []):
         if t.get("askedIndex") == 0:
             nodes = t.get("nodes", [])
-    if len(nodes) != 4:
-        notes.append(f"expected 4 clips on V1, read back {len(nodes)} — nothing else is "
+    if len(nodes) != 5:
+        notes.append(f"expected 5 clips on V1, read back {len(nodes)} — nothing else is "
                      f"trustworthy until that matches")
-        return {k: False for k in ("fade_linear", "fade_shaped", "keyframes", "clip_disable")}, notes
+        return ({k: False for k in ("fade_linear", "fade_shaped", "keyframes", "clip_disable",
+                                    "transition")}, notes)
 
     fps = FPS[0] / FPS[1]
 
@@ -223,6 +229,27 @@ def judge(seen: dict, want: dict) -> tuple[dict, list[str]]:
     verdict["clip_disable"] = nodes[3].get("disabled") is True
     notes.append(f"clip_disable: disabled={nodes[3].get('disabled')}")
 
+    # --- 5. transition. `hasTransition` is the only confirmation the API offers, because
+    #        Constants.TransitionPosition is absent at runtime, so this cannot say WHICH end.
+    #        The second half is the one that matters in practice: a transition eats handles, so the
+    #        clip must still be the length the plan asked for.
+    # 🔴 There is NO hasTransition() in this API. The declarations carry a docstring saying there
+    # is, attached to createRemoveVideoTransitionAction by mistake; calling it threw "is not a
+    # function". A transition is its OWN track item, so the evidence is the track's transition list
+    # — which is better: it gives a count and a position, not just a boolean.
+    n5 = nodes[4]
+    dur5 = n5.get("durationSeconds")
+    want5 = 70 * FPS[1] / FPS[0]
+    len_ok = dur5 is not None and abs(dur5 - want5) < 1e-6
+    trans = []
+    for t in seen.get("tracks", []):
+        if t.get("askedIndex") == 0:
+            trans = t.get("transitions") or []
+    verdict["transition"] = bool(len(trans) == 1 and len_ok)
+    notes.append(f"transition: {len(trans)} on the track {trans} | clip 5 duration={dur5} "
+                 f"(asked {want5:.6f}) — a transition consumes handles, so an unchanged clip "
+                 f"length is the half of the claim that matters")
+
     return verdict, notes
 
 
@@ -245,8 +272,8 @@ def selftest() -> int:
         return {"ticks": int(round(frame / f * T)), "seconds": frame / f, "value": value,
                 "interpolation": interp}
 
-    def clip(components, disabled=False):
-        return {"components": components, "disabled": disabled}
+    def clip(components, disabled=False, dur=None):
+        return {"components": components, "disabled": disabled, "durationSeconds": dur}
 
     def opacity(kfs, tv=True):
         return [{"matchName": "AE.ADBE Opacity",
@@ -263,9 +290,25 @@ def selftest() -> int:
         clip(opacity([kf(0, 0, 5), kf(15, 100, 5), kf(74, 100, 5), kf(89, 0, 5)])),
         clip(motion([kf(0, 100.0), kf(89, 120.0)])),
         clip([], disabled=True),
-    ]}]}
+        clip([], dur=70 * FPS[1] / FPS[0]),
+    ], "transitions": [{"startTicks": 0, "durationTicks": 1}]}]}
     v, _ = judge(good, plan())
-    check("a healthy read-back promotes all four", all(v.values()), str(v))
+    check("a healthy read-back promotes all five", all(v.values()), str(v))
+
+    # --- 🔴 a transition that ATE HANDLES and shortened the clip must be refused. That is the
+    #     failure that matters: the cut is no longer where the plan put it, and hasTransition()
+    #     still says true, so the obvious check alone would pass it.
+    bad = json.loads(json.dumps(good))
+    bad["tracks"][0]["nodes"][4]["durationSeconds"] = 58 * FPS[1] / FPS[0]
+    v2, _ = judge(bad, plan())
+    check("a transition that shortened the clip is refused", v2["transition"] is False,
+          "hasTransition() alone cannot see this")
+
+    # --- and a clip of the right length with NO transition attached is refused too
+    bad = json.loads(json.dumps(good))
+    bad["tracks"][0]["transitions"] = []
+    v3, _ = judge(bad, plan())
+    check("the right length without a transition is refused", v3["transition"] is False)
 
     # --- a fade with ONE keyframe does not fade
     bad = json.loads(json.dumps(good))
@@ -318,10 +361,11 @@ def selftest() -> int:
     check("an enabled clip is not read as disabled", v["clip_disable"] is False)
 
     # --- the wrong number of clips must fail EVERYTHING, not be judged per feature
-    short = {"tracks": [{"askedIndex": 0, "nodes": good["tracks"][0]["nodes"][:2]}]}
+    short = {"tracks": [{"askedIndex": 0, "nodes": good["tracks"][0]["nodes"][:3],
+                         "transitions": []}]}
     v, notes = judge(short, plan())
     check("a short timeline fails every feature", not any(v.values()))
-    check("and says why", any("expected 4 clips" in n for n in notes))
+    check("and says why", any("expected 5 clips" in n for n in notes))
 
     # --- the plan itself must be valid and must NOT ask for anything unimplemented
     errs = nle_ir.validate(plan())
@@ -384,16 +428,15 @@ def main() -> int:
         print("  " + n)
 
     print("\nverdict:")
-    for k in ("fade_linear", "fade_shaped", "keyframes", "clip_disable"):
+    for k in ("fade_linear", "fade_shaped", "keyframes", "clip_disable", "transition"):
         print(f"  {k:<14} {'✅ CONFIRMED' if verdict.get(k) else '🔴 NOT CONFIRMED'}")
-    print(f"  {'transition':<14} ⚠️  not implemented in this backend — not tested")
 
     out = os.path.join(MEDIA, "capability_report.json")
     with open(out, "w") as fh:
         json.dump({"verdict": verdict, "notes": notes, "readback": seen}, fh, indent=2)
     print(f"\nwritten to {out}")
 
-    if all(verdict.get(k) for k in ("fade_linear", "keyframes", "clip_disable")):
+    if all(verdict.get(k) for k in ("fade_linear", "keyframes", "clip_disable", "transition")):
         print("\nPromote these in nle_ir.CAPABILITIES['premiere'] — and only these.")
         return 0
     print("\nSomething did not take. Do NOT promote anything that reads NOT CONFIRMED.")
