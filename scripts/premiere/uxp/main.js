@@ -34,7 +34,7 @@ const ppro = require("premierepro");
 const uxp = require("uxp");
 
 const POLL_MS = 600;
-const PANEL_VERSION = "1.7.0-transitions2";   // bump on every edit, so a stale panel is visible in --ping
+const PANEL_VERSION = "1.9.0-program-build";   // bump on every edit, so a stale panel is visible in --ping
 
 /* Premiere's internal time unit. Asserted against the running application in `probe` rather than
  * trusted: if this number is ever different, every frame position computed from it is wrong and
@@ -1720,13 +1720,19 @@ async function applyGrade(project, trackItem, node, report, where) {
  *   2. The position constants are NOT `Constants.TransitionPosition` (absent at runtime). They are
  *      `VideoTransition.TRANSITIONPOSITION_START` / `_END`.
  *
- * So verification counts TRANSITION track items — `getTrackItems(TrackItemType.TRANSITION, false)`
- * — which is better evidence than a per-clip boolean would have been: it gives a count AND each
- * transition's position, so "which end" is answerable after all.
+ * So verification counts TRANSITION track items — `getTrackItems(TrackItemType.TRANSITION, false)`.
  *
- * ⚠️ A transition consumes handles from BOTH clips it spans. `nle_ir` refuses one longer than its
- * own clip, which is the case it can see; a clip with no handles beyond the cut can still come out
- * shorter than asked, and only the read-back duration will show it.
+ * 🔴 That count is ALL it gives. Every TRANSITION item marshals as `null`, so its start and
+ * duration are unreadable and getStartTime() on one throws. A control track reports length 0, so
+ * the count is real evidence that a transition exists — and no evidence at all about where it sits
+ * or how long it is. Do not claim otherwise in a report.
+ *
+ * ⚠️ A transition consumes handles from BOTH clips it spans, and a centred dissolve takes HALF its
+ * duration from each side of the cut. `nle_ir` refuses one longer than its own clip, which is the
+ * case it can see. A clip with no handle beyond the cut silently truncates the transition instead:
+ * asking for 12 frames against an outgoing clip with zero tail handle rendered SIX, all on one
+ * side, with no warning anywhere and the clip length unchanged. Nothing in this API reports that.
+ * The only way to know a transition's real geometry is to RENDER and measure.
  */
 const TRANSITION_MATCH = {
   cross_dissolve: "AE.ADBE Cross Dissolve New",
@@ -1764,8 +1770,11 @@ async function applyTransition(project, track, trackItem, node, fr, report, wher
   const asked = Object.keys(node.transition).filter((k) => node.transition[k]);
   const durAfter = (await trackItem.getDuration()).ticksNumber;
 
+  // Null items are EXPECTED here (see the note above), so they are counted, not filed as errors.
   const found = [];
+  let unreadable = 0;
   for (const it of items) {
+    if (!it) { unreadable++; continue; }
     try {
       found.push({ startTicks: (await it.getStartTime()).ticksNumber,
                    durationTicks: (await it.getDuration()).ticksNumber });
@@ -1776,7 +1785,7 @@ async function applyTransition(project, track, trackItem, node, fr, report, wher
     asked: asked,
     transitionsOnTrackBefore: before, transitionsOnTrackAfter: items.length,
     added: items.length - before,
-    found: found,
+    found: found, unreadable: unreadable,
     durationTicksBefore: durBefore, durationTicksAfter: durAfter,
     clipLengthChanged: durBefore !== durAfter,
   } });
@@ -2043,13 +2052,22 @@ async function opReadback(job) {
     }
     // Transitions are their OWN track items, not a property of a clip: there is no
     // hasTransition() anywhere in this API (the declarations' docstring saying so is attached to
-    // createRemoveVideoTransitionAction by mistake). Listing them gives a count and a position.
-    const trans = [];
-    for (const it of (tr.getTrackItems(ppro.Constants.TrackItemType.TRANSITION, false) || [])) {
+    // createRemoveVideoTransitionAction by mistake).
+    //
+    // 🔴 And listing them gives a COUNT AND NOTHING ELSE. Every TRANSITION track item marshals
+    // across the UXP boundary as `null` — the array has the right length and null in every slot,
+    // confirmed against a control track that reports length 0. So start and duration are not
+    // knowable from here, and calling getStartTime() on one throws a TypeError. Report the count
+    // and say plainly that the rest is unreadable, rather than filing the TypeError as a finding:
+    // an error string sitting in a results list reads like evidence and is not.
+    const transItems = tr.getTrackItems(ppro.Constants.TrackItemType.TRANSITION, false) || [];
+    const trans = { count: transItems.length, unreadable: 0, items: [] };
+    for (const it of transItems) {
+      if (!it) { trans.unreadable++; continue; }
       try {
-        trans.push({ startTicks: (await it.getStartTime()).ticksNumber,
-                     durationTicks: (await it.getDuration()).ticksNumber });
-      } catch (e) { trans.push({ error: errString(e).split("\n")[0] }); }
+        trans.items.push({ startTicks: (await it.getStartTime()).ticksNumber,
+                           durationTicks: (await it.getDuration()).ticksNumber });
+      } catch (e) { trans.items.push({ error: errString(e).split("\n")[0] }); }
     }
     out.tracks.push({ askedIndex: i, reportedIndex: await tr.getIndex(),
                       name: tr.name, nodes: nodes, transitions: trans });
@@ -2086,6 +2104,80 @@ async function opRender(job) {
   };
 }
 
+/* op: strip_audio — remove audio items from tracks the plan never asked for.
+ *
+ * 🔴 THE ONE PIECE OF THE BUILD THE `program` INTERPRETER CANNOT EXPRESS.
+ *
+ * `TrackItemSelection.createEmptySelection(cb)` hands the selection to a CALLBACK. A declarative
+ * step list has no way to say "and then, inside that callback, do these things", so this stays in
+ * the panel. It is a fair place to draw the line: this is a fixed primitive, not build logic — it
+ * takes the set of audio tracks the plan wants and removes everything on the others, and it does
+ * not change when a cut changes.
+ *
+ * It REPORTS the counts and refuses nothing. The decision to fail belongs to the caller, which is
+ * the whole point of moving the build out here. See `premiere_program.py`.
+ *
+ * Why it must exist at all: `createOverwriteItemAction(item, time, vTrack, aTrack)` places BOTH
+ * streams, with no video-only form, so every picture clip drags the camera's embedded audio in.
+ * Measured once at -28.7 LUFS for a programme mixed to -14.0.
+ */
+async function opStripAudio(job) {
+  const project = await activeProject();
+  const seq = await project.getActiveSequence();
+  if (!seq) throw new Error("strip_audio: no active sequence");
+
+  const keep = {};
+  for (const i of (job.keep || [])) keep[i] = true;
+
+  // Collect the track handles AFTER the last placement — read-only, so nothing is invalidated —
+  // and get a FRESH editor inside the lock, because every clip placed since mutated the project.
+  const tracks = [];
+  const n = await seq.getAudioTrackCount();
+  for (let i = 0; i < n; i++) {
+    if (keep[i]) continue;
+    const tr = await seq.getAudioTrack(i);
+    if (tr) tracks.push({ index: i, track: tr });
+  }
+
+  let strays = 0;
+  for (const at of tracks) {
+    strays += (at.track.getTrackItems(ppro.Constants.TrackItemType.CLIP, false) || []).length;
+  }
+
+  if (strays) {
+    lockedTransaction(project, "film-shoot: remove camera audio", (c) => {
+      const ed = ppro.SequenceEditor.getEditor(seq);
+      let sel = null;
+      ppro.TrackItemSelection.createEmptySelection((s) => { sel = s; });
+      if (!sel) throw new Error("could not create a selection to remove stray audio");
+      let added = 0;
+      for (const at of tracks) {
+        for (const it of (at.track.getTrackItems(ppro.Constants.TrackItemType.CLIP, false) || [])) {
+          sel.addItem(it, true);
+          added++;
+        }
+      }
+      if (!added) {
+        throw new Error("counted " + strays + " stray audio item(s) but added none to the selection");
+      }
+      c.addAction(ed.createRemoveItemsAction(sel, false, ppro.Constants.MediaType.AUDIO, false));
+    });
+  }
+
+  // Read back rather than trust the removal.
+  let remaining = 0;
+  const after = await seq.getAudioTrackCount();
+  for (let i = 0; i < after; i++) {
+    if (keep[i]) continue;
+    const tr = await seq.getAudioTrack(i);
+    if (!tr) continue;
+    remaining += (tr.getTrackItems(ppro.Constants.TrackItemType.CLIP, false) || []).length;
+  }
+
+  return { ok: true, keep: job.keep || [], strays: strays, straysRemaining: remaining,
+           audioTrackCount: after };
+}
+
 // -------------------------------------------------------------------------------------------
 // dispatch
 // -------------------------------------------------------------------------------------------
@@ -2099,6 +2191,7 @@ const OPS = {
   call: opCall,
   program: opProgram,
   build: opBuild,
+  strip_audio: opStripAudio,
   readback: opReadback,
   render: opRender,
 };

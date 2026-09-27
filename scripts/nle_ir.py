@@ -105,11 +105,18 @@ CAPABILITIES = {
         # CONFIRMED: a Scale ramp 100 -> 120 that actually moves. The assertion is the SPAN, because
         # two keyframes at one value is a static value with extra steps.
         "keyframes":       True,
-        # Implemented 2026-09-26 and NOT YET PROVEN, which is what UNVERIFIED means. It was False
-        # before that — accurately, because there was no code at all — and the distinction matters:
-        # False blocks even with --allow-unverified, which is right for "cannot" and wrong for
-        # "untested". That difference is what stopped this capability's own test from running.
-        "transition":      "UNVERIFIED",
+        # CONFIRMED 2026-09-26, and this one could not be confirmed from the timeline at all.
+        # A TRANSITION track item marshals across the UXP boundary as `null`: the array has the
+        # right length with nothing in any slot, so start and duration are unreadable and there is
+        # no hasTransition() either. The count alone (1 on the target track, 0 on every other) says
+        # a transition EXISTS and nothing about its geometry.
+        # So the geometry was proven by RENDERING and measuring luma per frame: 24 frames asked,
+        # a 24-frame ramp rendered, centred on the cut, 50% exactly at the cut.
+        # ⚠️ And that render is what caught the real trap: a transition takes HALF its duration from
+        # each side of the cut, so an outgoing clip with no tail handle silently truncates it. The
+        # same test asking 12 frames against a handle-less clip rendered SIX, on one side only,
+        # with no warning and the clip length unchanged. Nothing in the API reports this.
+        "transition":      True,
         # 🔴 NO SCRIPTED COLOUR AT ALL, measured 2026-09-26 on 26.5.1.
         # `createSetInputLUTIDAction` wants an opaque ID, not a path, with no documented way to
         # obtain one. And AE.ADBE Lumetri exposes 130 parameters of which ZERO accept a string:

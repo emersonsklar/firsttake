@@ -43,6 +43,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
@@ -55,8 +56,13 @@ FPS = (30000, 1001)
 RASTER = (1920, 1080)
 
 # One clip per feature, each long enough that a fade cannot be confused with a whole clip.
-CLIPS = {"a": (90, "0x1E4D6B"), "b": (90, "0x6B1E4D"), "c": (90, "0x4D6B1E"),
-         "d": (90, "0x6B4D1E"), "e": (90, "0x1E6B4D")}
+# 🔴 120 frames, while every node below uses at most 90, so EVERY clip keeps a tail handle.
+# This is not tidiness. A transition consumes handles from BOTH clips it spans, and when these were
+# 90-frame clips used 90 frames long, the outgoing clip had zero tail handle: a 12-frame dissolve
+# came out 6 frames, entirely on one side of the cut, and the test called it CONFIRMED because it
+# only counted transitions. Asked 12, rendered 6. The handles are load-bearing.
+CLIPS = {"a": (120, "0x1E4D6B"), "b": (120, "0x6B1E4D"), "c": (120, "0x4D6B1E"),
+         "d": (120, "0x6B4D1E"), "e": (120, "0x1E6B4D")}
 
 
 def make_media() -> list[str]:
@@ -119,18 +125,31 @@ def plan(preset: str | None = None) -> dict:
                  "keyframes": [{"param": "Scale",
                                 "points": [{"frame": 0, "value": 100.0},
                                            {"frame": 89, "value": 120.0}]}]},
-                # 4. a disabled clip
-                {"kind": "clip", "media": "d", "rec": 270, "len": 90, "src_in": 0,
+                # 4. a disabled clip — and the OUTGOING side of the transition below, which is why
+                #    it is 78 frames of a longer source rather than all of it. See below.
+                {"kind": "clip", "media": "d", "rec": 270, "len": 78, "src_in": 0,
                  "_feature": "clip_disable", "disabled": True},
-                # 5. a cross dissolve at the head. src_in is 10 so the clip HAS handles: a
-                #    transition eats them, and without any the clip would shorten instead.
-                {"kind": "clip", "media": "e", "rec": 360, "len": 70, "src_in": 10,
+                # 5. a cross dissolve at the head, butted against clip 4 with no gap.
+                #
+                # 🔴 BOTH clips must keep a handle across this cut, because a centred transition
+                # takes HALF its duration from each side. src_in 10 gives the incoming clip its
+                # head handle; clip 4 being 78 frames long gives the outgoing clip a tail handle.
+                # When clip 4 used its whole source, Premiere silently truncated this dissolve to
+                # 6 frames entirely on one side — no warning, clip length unchanged, and the
+                # count-based verdict passed it. Nothing in the API reports the truncation.
+                #
+                # ⚠️ And 78 is deliberately shorter than the source under EITHER length Premiere
+                # might believe. Lengthening the media alone did not fix it: Premiere kept the
+                # cached 90-frame metadata from the earlier import of the same filename, so the
+                # handle existed on disk and not in the project. The layout must not depend on a
+                # re-import happening.
+                {"kind": "clip", "media": "e", "rec": 348, "len": 70, "src_in": 10,
                  "_feature": "transition",
                  "transition": {"in": {"frames": 12, "type": "cross_dissolve"}}},
             ]},
         ],
         "render": ({"output": os.path.join(MEDIA, "capability.mov"), "preset": preset,
-                    "frames": 430} if preset else None),
+                    "frames": 418} if preset else None),
     }
 
 
@@ -146,6 +165,105 @@ def param(components: list, comp_match: str, param_name: str) -> dict | None:
             if str(p.get("displayName", "")).lower() == param_name.lower():
                 return p
     return None
+
+
+TRANSITION_CUT = 348          # where clip 5 starts, and so where the dissolve is centred
+TRANSITION_FRAMES = 12        # what the plan asks for
+
+
+def wait_for_render(path: str, frames: int, timeout: float = 600.0) -> bool:
+    """Block until the render has all its frames.
+
+    ⚠️ `render` returns as soon as Premiere ACCEPTS the export, not when the file is finished —
+    the op reports ok in half a second for a job that takes a minute. Measuring the file at that
+    point reads a truncated render, or no file at all, and would report a geometry failure that is
+    really a race. So poll the frame count until it stops growing at the number the plan asked for.
+    """
+    deadline = time.time() + timeout
+    last, stable = -1, 0
+    while time.time() < deadline:
+        got = probe_frames(path) if os.path.exists(path) else 0
+        if got >= frames:
+            return True
+        stable = stable + 1 if got == last else 0
+        if stable >= 8 and got > 0:
+            print(f"  render stalled at {got}/{frames} frames")
+            return False
+        last = got
+        time.sleep(2.0)
+    print(f"  render timed out at {last}/{frames} frames")
+    return False
+
+
+def luma_per_frame(path: str, first: int, last: int) -> list[float]:
+    """Mean luma of each frame in [first, last], straight out of ffmpeg."""
+    r = subprocess.run(
+        ["ffmpeg", "-nostdin", "-hide_banner", "-i", path,
+         "-vf", f"select='between(n\\,{first}\\,{last})',signalstats,"
+                f"metadata=print:key=lavfi.signalstats.YAVG:file=-",
+         "-vsync", "0", "-f", "null", os.devnull],
+        capture_output=True, text=True)
+    out = []
+    for line in r.stdout.splitlines():
+        if "YAVG=" in line:
+            out.append(float(line.split("YAVG=")[1]))
+    return out
+
+
+def judge_transition_geometry(path: str) -> tuple[bool, str]:
+    """Measure the dissolve in the RENDER, because no read-back can see it.
+
+    🔴 This is the only check in this file that can verify a transition's duration or its position
+    relative to the cut. A TRANSITION track item marshals as null, so the timeline can only be
+    asked *whether* one exists. A 12-frame dissolve that Premiere quietly truncated to 6 frames on
+    one side of the cut read back identically to a correct one.
+
+    The outgoing clip is disabled, so it contributes black: the dissolve is a clean ramp from the
+    black floor up to the incoming clip's level, and its length and midpoint are both measurable.
+    """
+    lo, hi = TRANSITION_CUT - TRANSITION_FRAMES, TRANSITION_CUT + TRANSITION_FRAMES
+    vals = luma_per_frame(path, lo, hi)
+    if len(vals) != hi - lo + 1:
+        return False, f"expected {hi - lo + 1} frames of luma from the render, got {len(vals)}"
+    return judge_ramp(vals, lo)
+
+
+def judge_ramp(vals: list[float], lo: int) -> tuple[bool, str]:
+    """The measurement itself, separated from ffmpeg so it can be tested without a render."""
+    floor, ceiling = min(vals), max(vals)
+    if ceiling - floor < 50:
+        return False, (f"no ramp in the render at all: luma spans {floor:.1f}..{ceiling:.1f} across "
+                       f"frames {lo}..{lo + len(vals) - 1}, so nothing dissolved")
+
+    # the ramp is every frame strictly between the two plateaus
+    mid = (floor + ceiling) / 2.0
+    ramp = [i + lo for i, v in enumerate(vals) if floor + 1 < v < ceiling - 1]
+    if not ramp:
+        return False, "luma is flat then jumps: a hard cut, not a dissolve"
+    span = (ramp[-1] + 1) - (ramp[0] - 1)          # inclusive of the plateau frames either side
+
+    # and the 50% point lands AT the cut for a centred transition
+    nearest_mid = min(range(len(vals)), key=lambda i: abs(vals[i] - mid)) + lo
+
+    ok = span == TRANSITION_FRAMES and abs(nearest_mid - TRANSITION_CUT) <= 1
+    return ok, (f"rendered ramp spans {span} frames ({ramp[0] - 1}..{ramp[-1] + 1}), asked "
+                f"{TRANSITION_FRAMES}; 50% luma at frame {nearest_mid}, cut is at "
+                f"{TRANSITION_CUT} — a centred dissolve is half either side of the cut")
+
+
+def transition_count(track: dict) -> int:
+    """How many TRANSITION items a read-back track reports.
+
+    The panel reports `{"count": N, "unreadable": M, "items": [...]}` because a TRANSITION track
+    item marshals as `null` and so cannot be described. Older read-backs are a bare list. Both are
+    accepted so a saved report from either panel version still judges the same way.
+    """
+    t = track.get("transitions")
+    if t is None:
+        return 0
+    if isinstance(t, dict):
+        return int(t.get("count", 0))
+    return len(t)
 
 
 def judge(seen: dict, want: dict) -> tuple[dict, list[str]]:
@@ -229,26 +347,37 @@ def judge(seen: dict, want: dict) -> tuple[dict, list[str]]:
     verdict["clip_disable"] = nodes[3].get("disabled") is True
     notes.append(f"clip_disable: disabled={nodes[3].get('disabled')}")
 
-    # --- 5. transition. `hasTransition` is the only confirmation the API offers, because
-    #        Constants.TransitionPosition is absent at runtime, so this cannot say WHICH end.
-    #        The second half is the one that matters in practice: a transition eats handles, so the
-    #        clip must still be the length the plan asked for.
+    # --- 5. transition.
     # 🔴 There is NO hasTransition() in this API. The declarations carry a docstring saying there
     # is, attached to createRemoveVideoTransitionAction by mistake; calling it threw "is not a
-    # function". A transition is its OWN track item, so the evidence is the track's transition list
-    # — which is better: it gives a count and a position, not just a boolean.
+    # function". A transition is its OWN track item, so the evidence is the track's transition
+    # COUNT — and that is all it is. A TRANSITION track item marshals across the UXP boundary as
+    # `null`, so its start and duration cannot be read at all. An earlier version of this judgement
+    # printed the resulting TypeError into the note and passed anyway.
+    #
+    # So the count is necessary and not sufficient, and it needs its control: every OTHER video
+    # track must read 0. Without that, "length 1" could be any structural artefact rather than the
+    # thing this test asked for. The GEOMETRY — duration and which side of the cut — is not
+    # knowable here at all; it was established by rendering and measuring luma per frame
+    # (24 frames asked, 24 rendered, centred on the cut). See references/PREMIERE-STATUS.md.
     n5 = nodes[4]
     dur5 = n5.get("durationSeconds")
     want5 = 70 * FPS[1] / FPS[0]
     len_ok = dur5 is not None and abs(dur5 - want5) < 1e-6
-    trans = []
+    trans, elsewhere = None, {}
     for t in seen.get("tracks", []):
+        tc = transition_count(t)
         if t.get("askedIndex") == 0:
-            trans = t.get("transitions") or []
-    verdict["transition"] = bool(len(trans) == 1 and len_ok)
-    notes.append(f"transition: {len(trans)} on the track {trans} | clip 5 duration={dur5} "
+            trans = tc
+        else:
+            elsewhere[t.get("askedIndex")] = tc
+    control_ok = all(c == 0 for c in elsewhere.values())
+    verdict["transition"] = bool(trans == 1 and len_ok and control_ok)
+    notes.append(f"transition: {trans} on the target track, {elsewhere or 'no'} on the others "
+                 f"(all must be 0, or a count of 1 proves nothing) | clip 5 duration={dur5} "
                  f"(asked {want5:.6f}) — a transition consumes handles, so an unchanged clip "
-                 f"length is the half of the claim that matters")
+                 f"length is the half of the claim this can see. Duration and side are NOT "
+                 f"readable: the track item marshals as null. They were proven by rendering.")
 
     return verdict, notes
 
@@ -310,6 +439,33 @@ def selftest() -> int:
     v3, _ = judge(bad, plan())
     check("the right length without a transition is refused", v3["transition"] is False)
 
+    # --- 🔴 the CONTROL. A count of 1 on the asked track only means anything if the tracks nobody
+    #     touched read 0. Without this, any structural artefact that happens to report one
+    #     transition-shaped item would confirm the capability.
+    bad = json.loads(json.dumps(good))
+    bad["tracks"].append({"askedIndex": 1, "nodes": [],
+                          "transitions": [{"startTicks": 0, "durationTicks": 1}]})
+    v4, _ = judge(bad, plan())
+    check("a transition on an untouched track refuses the verdict", v4["transition"] is False,
+          "then the count is not attributable to what the plan asked for")
+
+    # a genuinely empty control track must NOT spoil a good verdict
+    ok2 = json.loads(json.dumps(good))
+    ok2["tracks"].append({"askedIndex": 1, "nodes": [], "transitions": []})
+    v5, _ = judge(ok2, plan())
+    check("an empty control track still confirms", v5["transition"] is True)
+
+    # --- the panel now reports {count, unreadable, items} because the item marshals as null.
+    #     Both shapes must judge identically, or a saved report from either version misleads.
+    dictform = json.loads(json.dumps(good))
+    dictform["tracks"][0]["transitions"] = {"count": 1, "unreadable": 1, "items": []}
+    v6, _ = judge(dictform, plan())
+    check("the dict-shaped read-back judges the same as the list", v6["transition"] is True,
+          "a null item is expected, not a failure")
+    dictform["tracks"][0]["transitions"] = {"count": 0, "unreadable": 0, "items": []}
+    v7, _ = judge(dictform, plan())
+    check("a dict-shaped count of 0 is refused", v7["transition"] is False)
+
     # --- a fade with ONE keyframe does not fade
     bad = json.loads(json.dumps(good))
     bad["tracks"][0]["nodes"][0]["components"][0]["params"][0]["keyframes"] = [kf(0, 0)]
@@ -367,6 +523,43 @@ def selftest() -> int:
     check("a short timeline fails every feature", not any(v.values()))
     check("and says why", any("expected 5 clips" in n for n in notes))
 
+    # --- 🔴 the RENDER measurement, which is the only thing that can see a transition's geometry.
+    #     These four cases are the shapes a dissolve can come out as, and the harness could not
+    #     tell them apart until it measured pixels.
+    lo = TRANSITION_CUT - TRANSITION_FRAMES
+    BLACK, FULL = 64.0, 342.0
+
+    def ramp_between(start, end):
+        """luma over [lo, cut+12] with a linear ramp from frame `start` to frame `end`."""
+        out = []
+        for fr in range(lo, TRANSITION_CUT + TRANSITION_FRAMES + 1):
+            if fr <= start:
+                out.append(BLACK)
+            elif fr >= end:
+                out.append(FULL)
+            else:
+                out.append(BLACK + (FULL - BLACK) * (fr - start) / float(end - start))
+        return out
+
+    half = TRANSITION_FRAMES // 2
+    ok, why = judge_ramp(ramp_between(TRANSITION_CUT - half, TRANSITION_CUT + half), lo)
+    check("a 12-frame dissolve centred on the cut is confirmed", ok, why)
+
+    # the ACTUAL bug: half the duration, entirely on the outgoing side of the cut
+    ok, why = judge_ramp(ramp_between(TRANSITION_CUT - half, TRANSITION_CUT), lo)
+    check("a dissolve truncated to 6 frames on one side is refused", not ok,
+          "this is what a missing tail handle produces, and it read back as correct")
+
+    ok, why = judge_ramp([BLACK] * TRANSITION_FRAMES + [FULL] * (TRANSITION_FRAMES + 1), lo)
+    check("a hard cut is refused", not ok, why)
+
+    ok, why = judge_ramp([BLACK] * (2 * TRANSITION_FRAMES + 1), lo)
+    check("a render with no ramp at all is refused", not ok, why)
+
+    # right length, wrong place: 12 frames but entirely after the cut
+    ok, why = judge_ramp(ramp_between(TRANSITION_CUT, TRANSITION_CUT + TRANSITION_FRAMES), lo)
+    check("a full-length dissolve on the wrong side of the cut is refused", not ok, why)
+
     # --- the plan itself must be valid and must NOT ask for anything unimplemented
     errs = nle_ir.validate(plan())
     check("the capability plan validates", not errs, str(errs))
@@ -381,6 +574,10 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--make-media", action="store_true")
     ap.add_argument("--preset", help="an .epr, to also prove `render` on this timeline")
+    ap.add_argument("--via-program", action="store_true",
+                    help="build through premiere_program.py's step emitter instead of the panel's "
+                         "`build` op. The same plan, the same judgement — which is what makes it "
+                         "evidence that the port is equivalent rather than merely finished.")
     ap.add_argument("--jobdir")
     ap.add_argument("--selftest", action="store_true")
     a = ap.parse_args()
@@ -409,20 +606,55 @@ def main() -> int:
             print("  - " + e)
         return 1
 
-    print("building the capability timeline in Premiere...")
+    how = "premiere_program.py (steps)" if a.via_program else "the panel's build op"
+    print(f"building the capability timeline in Premiere via {how}...")
     try:
-        res = b.build(p, allow_unverified=True)
+        if a.via_program:
+            import premiere_program as pp
+            res = pp.run_build(b, p)
+            seqinfo = res["sequence"]
+            print(f"  built: raster {seqinfo.get('raster')} ticks {seqinfo.get('ticksPerFrame')}")
+        else:
+            res = b.build(p, allow_unverified=True)
+            print(f"  built: raster {res['sequence'].get('readBackRaster')} "
+                  f"ticks {res['sequence'].get('readBackTicksPerFrame')}")
     except Exception as e:
         print(f"BUILD FAILED: {e}")
         return 1
-    print(f"  built: raster {res['sequence'].get('readBackRaster')} "
-          f"ticks {res['sequence'].get('readBackTicksPerFrame')}")
 
     print("reading the timeline back...")
     seen = b.readback(with_components=True)
     seen = b.send({"op": "readback", "with_components": True, "with_keyframes": True})
 
     verdict, notes = judge(seen, p)
+
+    # 🔴 The timeline cannot answer the question that matters about a transition. Render and measure.
+    #    Without this, a dissolve Premiere truncated to half its length on one side of the cut is
+    #    indistinguishable from a correct one — that happened, and this run passed it.
+    if a.preset:
+        rendered = p["render"]["output"]
+        print(f"rendering to measure the dissolve ({os.path.basename(rendered)})...")
+        if os.path.exists(rendered):
+            os.remove(rendered)
+        r = b.render(rendered, a.preset)
+        if not r.get("ok"):
+            print(f"  RENDER FAILED: {r}")
+            verdict["transition"] = False
+            notes.append("transition: the render failed, so its geometry is unverified")
+        else:
+            waited = wait_for_render(rendered, p["render"]["frames"])
+            if not waited:
+                verdict["transition"] = False
+                notes.append(f"transition: {rendered} never reached "
+                             f"{p['render']['frames']} frames, so geometry is unverified")
+            else:
+                geo_ok, geo = judge_transition_geometry(rendered)
+                verdict["transition"] = bool(verdict.get("transition") and geo_ok)
+                notes.append("transition geometry (MEASURED IN THE RENDER): " + geo)
+    else:
+        notes.append("transition: geometry NOT checked — pass --preset to render and measure it. "
+                     "The timeline read-back cannot see a transition's duration or its side.")
+
     print("\nwhat the timeline actually says:")
     for n in notes:
         print("  " + n)
