@@ -8,8 +8,12 @@ prove what landed. Writes an MHL manifest, a JSON manifest, and a self-contained
 HTML report.
 
 The verification is the point. A copy that "looked fine" is not a copy. Every
-destination is read back from the platter -- not from the page cache -- and
-compared against the hash taken from the source stream.
+destination is read back and compared against the hash taken from the source
+stream. On macOS the read-back bypasses the page cache, so it comes from the
+platter. ⚠️ Windows and Linux offer no equivalent this tool uses, so a read-back
+there MAY be served from RAM for files just written -- the report says so, and
+the remedy is exact: eject and reconnect the destination (which drops its cache),
+then run `--verify-only` on it.
 
 Usage:
     ./offload.py /Volumes/CARD --dest /Volumes/ARCHIVE
@@ -39,12 +43,16 @@ from __future__ import annotations
 import argparse
 import base64
 import datetime as dt
-import fcntl
+try:
+    import fcntl                     # POSIX only; used for macOS F_NOCACHE below
+except ImportError:                  # Windows: no fcntl, and no page-cache bypass here
+    fcntl = None
 import glob
 import hashlib
 import html
 import json
 import os
+import platform
 import re
 import shutil
 import subprocess
@@ -110,6 +118,17 @@ CFG: dict[str, Any] = {
 # macOS: tell the kernel not to keep these pages. Without this, verification
 # reads come back from RAM and prove nothing about what is on the disk.
 F_NOCACHE = 48
+
+# What the report may honestly claim about the read-back, per platform. Never claim a
+# cache bypass that did not happen: this line is what someone trusts before wiping a card.
+CACHE_NOTE_MAC = ("Verification re-reads every destination from the device with the "
+                  "page cache disabled, so a match here describes the bytes on the "
+                  "disk and not a copy still sitting in RAM.")
+CACHE_NOTE_OTHER = ("Verification re-reads every destination and compares it to the source "
+                    "hash. On this operating system the read-back of a file just written "
+                    "may come from memory rather than the disk. Before wiping the card: eject "
+                    "and reconnect each destination, then run offload --verify-only on it — "
+                    "that check reads from the disk.")
 
 VERSION = "1.0"
 
@@ -223,7 +242,7 @@ def have(tool: str) -> bool:
 def open_nocache(path: str):
     """Open for reading with the page cache disabled where the OS allows it."""
     f = open(path, "rb", buffering=0)
-    if sys.platform == "darwin":
+    if sys.platform == "darwin" and fcntl is not None:
         try:
             fcntl.fcntl(f.fileno(), F_NOCACHE, 1)
         except OSError:
@@ -272,8 +291,9 @@ def is_junk(name: str) -> bool:
 
 
 def free_bytes(path: str) -> int:
-    st = os.statvfs(path)
-    return st.f_bavail * st.f_frsize
+    # shutil.disk_usage is statvfs's f_bavail * f_frsize on POSIX -- the same number as
+    # before -- and GetDiskFreeSpaceEx on Windows, where os.statvfs does not exist.
+    return shutil.disk_usage(path).free
 
 
 # ===========================================================================
@@ -558,7 +578,7 @@ def write_mhl(sess: Session, dest_root: str, out_path: str) -> bool:
         "  <creatorinfo>",
         f"    <name>{esc(sess.operator or 'unknown')}</name>",
         f"    <username>{esc(sess.operator or 'unknown')}</username>",
-        f"    <hostname>{esc(os.uname().nodename)}</hostname>",
+        f"    <hostname>{esc(platform.node())}</hostname>",
         f"    <tool>offload {VERSION}</tool>",
         f"    <startdate>{iso(sess.started)}</startdate>",
         f"    <finishdate>{iso(sess.finished or time.time())}</finishdate>",
@@ -1090,12 +1110,11 @@ def render_html(sess: Session) -> str:
             P.append(f"<li>{E(n)}</li>")
         P.append("</ul>")
 
-    P.append(f'<footer>offload {VERSION} · {E(os.uname().nodename)} · '
+    P.append(f'<footer>offload {VERSION} · {E(platform.node())} · '
              f'started {iso(sess.started)} · finished '
              f'{iso(sess.finished or time.time())}<br>'
-             "Verification re-reads every destination from the device with the "
-             "page cache disabled, so a match here describes the bytes on the "
-             "disk and not a copy still sitting in RAM.</footer>")
+             + (CACHE_NOTE_MAC if sys.platform == "darwin" else CACHE_NOTE_OTHER)
+             + "</footer>")
     P.append("</div></body></html>")
     return "".join(P)
 
@@ -1208,7 +1227,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--project", default="", help="project name; becomes a folder")
     p.add_argument("--card", default="", help="card name; becomes a folder "
                                              "(default: source folder name)")
-    p.add_argument("--operator", default="", help="who ran it (default: $USER)")
+    p.add_argument("--operator", default="", help="who ran it (default: your login name)")
     p.add_argument("--title", default="", help="report title")
     p.add_argument("--notes", default="", help="free text for the report")
     p.add_argument("--logo", default="", metavar="PNG", help="logo for the report")
@@ -1264,7 +1283,7 @@ def main(argv: list[str]) -> int:
         hash_name=hash_name,
         project=args.project,
         card=card,
-        operator=args.operator or os.environ.get("USER", ""),
+        operator=args.operator or os.environ.get("USER") or os.environ.get("USERNAME", ""),
         title=args.title,
         notes=args.notes,
         started=time.time(),

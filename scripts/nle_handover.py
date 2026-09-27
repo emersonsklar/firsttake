@@ -113,7 +113,7 @@ def referenced_files(plan):
 
 
 def pack(plan_path, dest, from_backend=None, copy=False, full=False, allow_unverified=False):
-    with open(plan_path) as fh:
+    with open(plan_path, encoding="utf-8") as fh:
         plan = json.load(fh)
 
     if nle_ir is not None:
@@ -170,10 +170,10 @@ def pack(plan_path, dest, from_backend=None, copy=False, full=False, allow_unver
         "backend_report": compare,
         "baked": plan.get("baked", []),
     }
-    with open(os.path.join(dest, MANIFEST), "w") as fh:
+    with open(os.path.join(dest, MANIFEST), "w", encoding="utf-8") as fh:
         json.dump(manifest, fh, indent=2)
 
-    with open(os.path.join(dest, NOTES), "w") as fh:
+    with open(os.path.join(dest, NOTES), "w", encoding="utf-8") as fh:
         fh.write(render_notes(manifest, plan))
 
     return manifest
@@ -244,7 +244,7 @@ def verify(dest, backend=None, full=False, allow_unverified=False):
     mpath = os.path.join(dest, MANIFEST)
     if not os.path.exists(mpath):
         return ["%s has no %s — this is not a handover package" % (dest, MANIFEST)]
-    with open(mpath) as fh:
+    with open(mpath, encoding="utf-8") as fh:
         manifest = json.load(fh)
 
     ppath = os.path.join(dest, manifest.get("plan", PLAN))
@@ -252,7 +252,7 @@ def verify(dest, backend=None, full=False, allow_unverified=False):
         problems.append("the plan %r is missing from the package" % manifest.get("plan"))
         plan = None
     else:
-        with open(ppath) as fh:
+        with open(ppath, encoding="utf-8") as fh:
             plan = json.load(fh)
 
     for f in manifest.get("files", []):
@@ -298,7 +298,7 @@ def selftest():
         with open(media, "wb") as fh:
             fh.write(b"\x00" * (3 * CHUNK))
         lut = os.path.join(tmp, "camA.cube")
-        with open(lut, "w") as fh:
+        with open(lut, "w", encoding="utf-8") as fh:
             fh.write("LUT_3D_SIZE 2\n")
 
         plan = {
@@ -311,7 +311,7 @@ def selftest():
                  "grade": {"lut": lut}}]}],
         }
         plan_path = os.path.join(tmp, "plan.json")
-        with open(plan_path, "w") as fh:
+        with open(plan_path, "w", encoding="utf-8") as fh:
             json.dump(plan, fh)
 
         # --- pack without copying: manifest references media in place
@@ -326,7 +326,7 @@ def selftest():
         if not os.path.exists(os.path.join(dest, NOTES)):
             failures.append("no HANDOVER.md was written")
 
-        notes = open(os.path.join(dest, NOTES)).read()
+        notes = open(os.path.join(dest, NOTES), encoding="utf-8").read()
         if "referenced in place" not in notes:
             failures.append("the notes do not warn that media is not in the folder")
         if "will not appear at your end" not in notes:
@@ -359,7 +359,7 @@ def selftest():
                 failures.append("the refusal did not explain itself: %s" % e)
 
         # --- copy mode really copies and reads back
-        with open(lut, "w") as fh:
+        with open(lut, "w", encoding="utf-8") as fh:
             fh.write("LUT_3D_SIZE 2\n")
         dest3 = os.path.join(tmp, "pkg3")
         man3 = pack(plan_path, dest3, from_backend="resolve", copy=True)
@@ -389,11 +389,11 @@ def selftest():
         plan2 = json.loads(json.dumps(plan))
         plan2["tracks"][0]["nodes"][0]["grade"] = {"cdl": {"slope": [1, 1, 1]}, "lut": lut}
         p2 = os.path.join(tmp, "plan2.json")
-        with open(p2, "w") as fh:
+        with open(p2, "w", encoding="utf-8") as fh:
             json.dump(plan2, fh)
         dest4 = os.path.join(tmp, "pkg4")
         pack(p2, dest4, from_backend="resolve", copy=False, allow_unverified=True)
-        notes4 = open(os.path.join(dest4, NOTES)).read()
+        notes4 = open(os.path.join(dest4, NOTES), encoding="utf-8").read()
         if "premiere" not in notes4 or "CANNOT do exactly" not in notes4:
             failures.append("the handover notes do not tell the receiver that their application "
                             "cannot build the grade: %r" % notes4[-800:])

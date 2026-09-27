@@ -215,7 +215,7 @@ def load_samples(path, key=None):
     LUT is actually for.
     """
     import json
-    with open(path) as fh:
+    with open(path, encoding="utf-8") as fh:
         blob = json.load(fh)
 
     if key:
@@ -439,7 +439,7 @@ def selftest():
             r = subprocess.run(
                 ["ffmpeg", "-v", "error", "-y", "-f", "lavfi",
                  "-i", "color=c=0x4C7FB2:s=64x64:d=1,format=rgb24",
-                 "-vf", "lut3d=" + bpath, "-frames:v", "1", png],
+                 "-vf", lut3d_arg(bpath), "-frames:v", "1", png],
                 capture_output=True, text=True)
             if r.returncode != 0 or not os.path.exists(png):
                 bad("ffmpeg refused the cube we wrote: %s" % (r.stderr or "")[:300])
@@ -468,6 +468,18 @@ def selftest():
 
 
 # --------------------------------------------------------------------------------------------
+
+def lut3d_arg(path: str) -> str:
+    """A lut3d filter argument that survives ffmpeg's filtergraph parser on every platform.
+
+    Same escaping as make_proxies.py: backslashes and colons escaped, then quoted. Unescaped,
+    a Windows path (`C:\\Users\\...`) breaks it -- the drive colon reads as an option separator
+    and the backslashes as escapes. Quoted, spaces in the path are fine too. Verified with ffmpeg
+    9.0 on Windows against a LUT in a folder whose name has spaces.
+    """
+    esc = path.replace("\\", "\\\\").replace(":", "\\:")
+    return f"lut3d=file='{esc}'"
+
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])

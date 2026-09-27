@@ -1307,7 +1307,7 @@ def main() -> int:
     if not a.plan:
         ap.error("--plan is required")
 
-    with open(a.plan) as fh:
+    with open(a.plan, encoding="utf-8") as fh:
         plan = json.load(fh)
     errs = nle_ir.validate(plan) + nle_ir.capability_gate(
         plan, "premiere", allow_unverified=a.allow_unverified)

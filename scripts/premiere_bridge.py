@@ -81,7 +81,7 @@ class Bridge(object):
 
         # Write to a temporary name and rename, so the panel can never read a half-written job.
         tmp = path + ".partial"
-        with open(tmp, "w") as fh:
+        with open(tmp, "w", encoding="utf-8") as fh:
             json.dump(job, fh, indent=2)
         os.rename(tmp, path)
         self._say("-> %s (%s)" % (name, job.get("op")))
@@ -92,7 +92,7 @@ class Bridge(object):
                 # the panel writes with a single write; still, retry a truncated parse once
                 for _ in range(3):
                     try:
-                        with open(result_path) as fh:
+                        with open(result_path, encoding="utf-8") as fh:
                             return json.load(fh)
                     except ValueError:
                         time.sleep(0.15)
@@ -246,10 +246,10 @@ def selftest():
                     rp = os.path.join(tmp, n[:-len(".json")] + ".result.json")
                     if os.path.exists(rp):
                         continue
-                    with open(os.path.join(tmp, n)) as fh:
+                    with open(os.path.join(tmp, n), encoding="utf-8") as fh:
                         job = json.load(fh)
                     answered.append(job)
-                    with open(rp, "w") as fh:
+                    with open(rp, "w", encoding="utf-8") as fh:
                         json.dump(reply(job), fh)
                 stop.wait(0.03)
 
@@ -309,7 +309,7 @@ def selftest():
                     rp = os.path.join(tmp, n[:-len(".json")] + ".result.json")
                     if os.path.exists(rp):
                         continue
-                    with open(rp, "w") as fh:
+                    with open(rp, "w", encoding="utf-8") as fh:
                         json.dump({"ok": True, "warnings": ["clip slid to frame 266"]}, fh)
                 stop2.wait(0.03)
 
@@ -401,7 +401,7 @@ def main():
         elif a.probe:
             res = b.probe()
         elif a.build:
-            with open(a.build) as fh:
+            with open(a.build, encoding="utf-8") as fh:
                 plan = json.load(fh)
             res = b.build(plan, allow_unverified=a.allow_unverified)
         elif a.readback:
@@ -417,7 +417,7 @@ def main():
         return 1
 
     if a.out:
-        with open(a.out, "w") as fh:
+        with open(a.out, "w", encoding="utf-8") as fh:
             json.dump(res, fh, indent=2)
         print("result written to %s" % a.out)
 

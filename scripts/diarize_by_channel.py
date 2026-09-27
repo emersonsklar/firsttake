@@ -112,7 +112,7 @@ def isolation(dA, dB, floor):
 
 
 def load_words(path):
-    data = json.load(open(path))
+    data = json.load(open(path, encoding="utf-8"))
     segs = data["segments"] if isinstance(data, dict) else data
     words = []
     for s in segs:
@@ -207,7 +207,7 @@ def write_srt(path, words, labels, names, max_len=84, max_dur=6.0, gap=1.6):
         prev = c["speaker"]
         lines.append("%d\n%s --> %s\n%s\n" % (i, ts(c["start"]), ts(c["end"]),
                                               "\n".join(wrap(label + tidy(c["toks"])))))
-    open(path, "w").write("\n".join(lines))
+    open(path, "w", encoding="utf-8").write("\n".join(lines))
     return len(cues)
 
 
@@ -223,7 +223,7 @@ def transcribe(media, tmp):
     r = mlx_whisper.transcribe(wav, word_timestamps=True, condition_on_previous_text=False,
                                verbose=False)
     p = os.path.join(tmp, "words.json")
-    json.dump(r, open(p, "w"))
+    json.dump(r, open(p, "w", encoding="utf-8"))
     return p
 
 
@@ -271,7 +271,7 @@ def run(media, words_json, chans, names, srt_out, turns_out, force):
         print("  %d turns  --  %s" % (len(turns),
               "  ".join("%s %.1f min" % (k, v / 60) for k, v in share.items())))
         if turns_out:
-            json.dump(turns, open(turns_out, "w"), indent=1)
+            json.dump(turns, open(turns_out, "w", encoding="utf-8"), indent=1)
             print("  wrote %s" % turns_out)
         if srt_out:
             n = write_srt(srt_out, words, labels, names)
@@ -333,7 +333,7 @@ def selftest():
                 words.append({"word": " w", "start": round(t, 3), "end": round(t + 0.3, 3)})
                 truth.append(who)
                 t += 0.4
-        json.dump({"segments": [{"words": words}]}, open(os.path.join(tmp, "w.json"), "w"))
+        json.dump({"segments": [{"words": words}]}, open(os.path.join(tmp, "w.json"), "w", encoding="utf-8"))
 
         pair = extract_pair(media, (0, 1), tmp)
         dA, dB = frame_db(pair[:, 0]), frame_db(pair[:, 1])
@@ -360,7 +360,7 @@ def selftest():
         # a word straddling a speaker change must not drag the whole turn with it
         straddle = list(words)
         straddle.append({"word": " x", "start": 3.3, "end": 3.6})   # spans A->B boundary
-        json.dump({"segments": [{"words": straddle}]}, open(os.path.join(tmp, "w2.json"), "w"))
+        json.dump({"segments": [{"words": straddle}]}, open(os.path.join(tmp, "w2.json"), "w", encoding="utf-8"))
         l2, _, _ = attribute(load_words(os.path.join(tmp, "w2.json")), dA, dB, floor)
         turns = build_turns(load_words(os.path.join(tmp, "w2.json")), l2, ("A", "B"))
         check("a straddling word does not merge two turns", len(turns) >= len(plan) - 1,
@@ -368,7 +368,7 @@ def selftest():
 
         srt = os.path.join(tmp, "o.srt")
         ncues = write_srt(srt, load_words(os.path.join(tmp, "w.json")), labels, ("Host", "Guest"))
-        body = open(srt).read()
+        body = open(srt, encoding="utf-8").read()
         check("SRT is well formed and names the speakers",
               ncues > 0 and "-->" in body and "Host:" in body and "Guest:" in body,
               "%d cues" % ncues)

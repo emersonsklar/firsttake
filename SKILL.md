@@ -52,6 +52,8 @@ ISO was two stops off the assumed value. Measured on the body beats printed.
 
 ## Start here, in order
 
+0. **New computer, or a tool failing at startup?** Follow `SETUP-FOR-CLAUDE.md` — run
+   `scripts/doctor.py`, which says in plain words what's missing and fixes most of it.
 1. **Does the user have a kit profile yet?** Look for a `KIT.md` or equivalent in
    their working folder. If not, run `references/onboarding.md` — an interview plus
    a short list of measurements that produces their own profile. Do not skip this

@@ -254,7 +254,7 @@ def selftest() -> int:
 
     with tempfile.TemporaryDirectory() as td:
         sheet = os.path.join(td, "09-DAY-SHEETS.html")
-        open(sheet, "w").write("<html><body>clap · offload.py · VERIFIED · sidecars · "
+        open(sheet, "w", encoding="utf-8").write("<html><body>clap · offload.py · VERIFIED · sidecars · "
                                "archive · LIVE</body></html>")
 
         check("--src is honoured", resolve_src(["--src", sheet]) == sheet)

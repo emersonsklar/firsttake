@@ -778,7 +778,7 @@ def main():
     path = a.validate or a.explain or a.compare
     if not path:
         ap.error("give --validate, --explain, --compare or --selftest")
-    with open(path) as fh:
+    with open(path, encoding="utf-8") as fh:
         plan = json.load(fh)
 
     if a.compare:

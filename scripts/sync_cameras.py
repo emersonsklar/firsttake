@@ -316,7 +316,7 @@ def selftest():
         _run(["ffmpeg", "-y", "-v", "error", "-ss", "40", "-i", long_ref,
               "-c:a", "pcm_s16le", head])  # 260 s that DOES match, at offset 40
         lst = os.path.join(tmp, "partial.txt")
-        with open(lst, "w") as fh:
+        with open(lst, "w", encoding="utf-8") as fh:
             fh.write("file '%s'\nfile '%s'\n" % (head, tail))
         partial = os.path.join(tmp, "partial.wav")
         _run(["ffmpeg", "-y", "-v", "error", "-f", "concat", "-safe", "0",

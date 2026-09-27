@@ -29,6 +29,8 @@ tool they run confirms that access with GitHub and records a friend license.
 | `premiere_bridge.py` | drive Premiere Pro from Python through the UXP panel in `premiere/uxp/` — **`--probe` first** |
 | `nle_handover.py` | pack a cut for someone using the other NLE, and let them verify it arrived whole |
 | `scrub_check.py` | refuse to publish credentials or client-identifying material |
+| `doctor.py` | is this computer ready? plain-English checklist; `--fix` installs what's missing (asks first) |
+| `first_run.py` | one-minute tour on practice footage: offload, verify, catch a planted fault, QC |
 | `license_check.py` | activate a license, start a project, and the gate the post tools call — **never** blocks offload or QC |
 
 ## Run the harnesses after any edit
@@ -56,6 +58,8 @@ python3 verify_premiere_backend.py --selftest
 python3 build_day_sheets.py --selftest
 python3 scrub_check.py --selftest
 python3 license_check.py --selftest
+python3 doctor.py --selftest
+python3 first_run.py --selftest
 ```
 
 The three NLE harnesses need neither application installed. `nle_ir` asserts that both backends'

@@ -664,7 +664,7 @@ def main() -> int:
         print(f"  {k:<14} {'✅ CONFIRMED' if verdict.get(k) else '🔴 NOT CONFIRMED'}")
 
     out = os.path.join(MEDIA, "capability_report.json")
-    with open(out, "w") as fh:
+    with open(out, "w", encoding="utf-8") as fh:
         json.dump({"verdict": verdict, "notes": notes, "readback": seen}, fh, indent=2)
     print(f"\nwritten to {out}")
 

@@ -171,13 +171,22 @@ def parse_clip(spec):
     return spec, None, None
 
 
+def lut3d_arg(path: str) -> str:
+    """A lut3d filter argument that survives ffmpeg's filtergraph parser on every platform.
+
+    Same escaping as make_proxies.py: backslashes and colons escaped, then quoted. Unescaped,
+    a Windows path (`C:\\Users\\...`) breaks it -- the drive colon reads as an option separator
+    and the backslashes as escapes. Quoted, spaces in the path are fine too. Verified with ffmpeg
+    9.0 on Windows against a LUT in a folder whose name has spaces.
+    """
+    esc = path.replace("\\", "\\\\").replace(":", "\\:")
+    return f"lut3d=file='{esc}'"
+
+
 def measure(clips, luts, n_samples=N_SAMPLES, mid=(MID_LO, MID_HI), frac=NEUTRAL_FRAC,
             verbose=True):
-    chain = [f"lut3d={p}" for p in luts]
-    for p in luts:
-        if " " in p:
-            sys.exit(f"ERROR: ffmpeg's lut3d parser fails on paths containing spaces: {p!r}. "
-                     f"Keep space-free copies of your LUTs.")
+    # Quoted and escaped, so spaces and Windows drive paths both work (see lut3d_arg).
+    chain = [lut3d_arg(p) for p in luts]
     rows = {}
     with tempfile.TemporaryDirectory() as td:
         if verbose:

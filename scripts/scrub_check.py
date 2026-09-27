@@ -132,6 +132,9 @@ ALLOW_VALUES = [
                        "address — it is nobody's inbox and identifies no person. The same string "
                        "appears in every SSH clone URL on the platform, and code that tries an "
                        "SSH remote cannot avoid writing it."),
+    ("python@3.12", "a Homebrew formula name (`brew install python@3.12`), not an email "
+                    "address. The setup instructions and doctor.py name it as the way to get "
+                    "the Python version the tools need on macOS."),
 ]
 
 

@@ -1,0 +1,454 @@
+#!/usr/bin/env python3
+"""
+doctor — is this computer ready for film-shoot? Says what's missing, in plain English, and can
+fix most of it.
+
+    python doctor.py                    # check everything, change nothing
+    python doctor.py --fix              # check, then offer to fix what it can (asks first)
+    python doctor.py --fix --yes        # fix without asking -- for Claude, AFTER the person agreed
+    python doctor.py --install-skill    # copy this folder to where Claude Code looks for skills
+    python doctor.py --json             # machine-readable, for Claude
+    python doctor.py --selftest
+
+Written for someone who has never opened a terminal: every problem comes with what it means and
+what to do, and Claude can run the fixes on their behalf. Run it first on a new computer, and
+again whenever a tool fails in a way that looks like setup rather than footage.
+
+⚠️ This file must keep running on an OLD Python -- diagnosing "your Python is too old" is part of
+its job -- so it avoids syntax newer than 3.8, even though the tools themselves need 3.12.
+
+What it never does: touch footage, change a system (as opposed to per-user) setting, or install
+anything without the person's say-so. Fixes are per-user: Python packages with `pip --user`, the
+UTF-8 setting in the user environment, ffmpeg through winget or Homebrew.
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import importlib.util
+import json
+import os
+import platform
+import shutil
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+# The tools print ✓, →, Δ and emoji. On Windows a piped stdout defaults to cp1252 and a print of
+# any of those raises -- which would make the doctor crash while diagnosing exactly that.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:                                         # noqa: BLE001
+        pass
+
+HERE = Path(__file__).resolve().parent
+ROOT = HERE.parent                                            # the skill folder
+MIN_PYTHON = (3, 12)
+SKILL_NAME = "film-shoot"                                     # must match SKILL.md's name:
+PACKAGES = [("numpy", "numpy"), ("soundfile", "soundfile"), ("PIL", "Pillow")]
+FFMPEG_FILTERS = ("lut3d", "ebur128")
+IS_WIN = sys.platform == "win32"
+IS_MAC = sys.platform == "darwin"
+
+OK, WARN, FAIL, INFO = "ok", "warn", "fail", "info"
+ICON = {OK: "✅", WARN: "⚠️ ", FAIL: "❌", INFO: "ℹ️ "}
+
+
+class Check:
+    def __init__(self, name, level, summary, meaning="", todo="", fix=None, fix_label=""):
+        self.name, self.level, self.summary = name, level, summary
+        self.meaning, self.todo = meaning, todo
+        self.fix, self.fix_label = fix, fix_label             # fix: callable that returns (ok, msg)
+
+    def as_dict(self):
+        return {"name": self.name, "level": self.level, "summary": self.summary,
+                "meaning": self.meaning, "todo": self.todo,
+                "fixable": self.fix is not None, "fix": self.fix_label}
+
+
+def run(cmd, timeout=600):
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout,
+                           encoding="utf-8", errors="replace")
+        return r.returncode, (r.stdout or "") + (r.stderr or "")
+    except (OSError, subprocess.TimeoutExpired) as e:
+        return 1, str(e)
+
+
+def python_cmd():
+    """How a person (or Claude) should start Python on this computer."""
+    if IS_WIN:
+        return "py -3.12" if shutil.which("py") else "python"
+    return "python3"
+
+
+# ---- individual checks ------------------------------------------------------------------------
+def check_python():
+    v = sys.version_info[:3]
+    have = ".".join(map(str, v))
+    if v[:2] >= MIN_PYTHON:
+        return Check("Python", OK, f"Python {have}", todo=f"Start the tools with: {python_cmd()}")
+    install = ("winget install -e --id Python.Python.3.12" if IS_WIN else
+               "brew install python@3.12   (or the installer from python.org)")
+    return Check("Python", FAIL, f"Python {have} is too old — the tools need 3.12 or newer",
+                 meaning="Some tools (the footage QC among them) won't even start on this version.",
+                 todo=f"Install Python 3.12: {install}. Then run this check again with the new one"
+                      f"{' (py -3.12 doctor.py)' if IS_WIN else ''}.")
+
+
+def check_utf8():
+    if not IS_WIN:
+        return None
+    if sys.flags.utf8_mode or os.environ.get("PYTHONUTF8") == "1" or _user_env("PYTHONUTF8") == "1":
+        return Check("Text output (Windows)", OK, "UTF-8 mode is on")
+
+    def fix():
+        code, out = run(["setx", "PYTHONUTF8", "1"])
+        return code == 0, ("UTF-8 mode turned on for your user account. It applies to newly "
+                           "opened windows and new Claude sessions." if code == 0 else out.strip())
+    return Check("Text output (Windows)", FAIL, "UTF-8 mode is off",
+                 meaning="Several tools print symbols like ✓ and →. With Windows' default text "
+                         "setting, those crash the tool when Claude runs it.",
+                 todo="Turn on Python's UTF-8 mode for your user account (a single setting).",
+                 fix=fix, fix_label="set PYTHONUTF8=1 for this user (setx)")
+
+
+def _user_env(name):
+    if not IS_WIN:
+        return None
+    try:
+        import winreg
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Environment") as k:
+            return winreg.QueryValueEx(k, name)[0]
+    except OSError:
+        return None
+
+
+def check_packages():
+    missing = [pip for mod, pip in PACKAGES if importlib.util.find_spec(mod) is None]
+    if not missing:
+        return Check("Python packages", OK, "numpy, soundfile and Pillow are installed")
+    req = ROOT / "requirements.txt"
+
+    def fix():
+        target = ["-r", str(req)] if req.is_file() else missing
+        code, out = run([sys.executable, "-m", "pip", "install", "--user", "--upgrade", *target])
+        still = [pip for mod, pip in PACKAGES if importlib.util.find_spec(mod) is None]
+        if code == 0:
+            return True, "Installed. (If a check still fails, open a new window and re-run.)"
+        return False, out.strip()[-600:]
+    return Check("Python packages", FAIL, "Missing: " + ", ".join(missing),
+                 meaning="The analysis tools are built on these; without them they stop at startup.",
+                 todo=f"{python_cmd()} -m pip install --user -r requirements.txt",
+                 fix=fix, fix_label="pip install --user " + " ".join(missing))
+
+
+def _other_ffmpegs(first):
+    """Other ffmpeg installs this computer has, beyond the one that runs when you type ffmpeg."""
+    candidates = []
+    if IS_WIN:
+        la = os.environ.get("LOCALAPPDATA", "")
+        candidates += [Path(la) / "Microsoft" / "WinGet" / "Links" / "ffmpeg.exe",
+                       Path("C:/ffmpeg/bin/ffmpeg.exe"),
+                       Path(os.environ.get("ProgramFiles", "C:/Program Files")) / "ffmpeg" / "bin" / "ffmpeg.exe"]
+        la_pkgs = Path(la) / "Microsoft" / "WinGet" / "Packages"
+        if la_pkgs.is_dir():
+            candidates += list(la_pkgs.glob("Gyan.FFmpeg*/**/bin/ffmpeg.exe"))
+    else:
+        candidates += [Path("/opt/homebrew/bin/ffmpeg"), Path("/usr/local/bin/ffmpeg")]
+    out = []
+    for c in candidates:
+        try:
+            if c.is_file() and c.resolve() != Path(first).resolve():
+                out.append(str(c))
+        except OSError:
+            pass
+    return out
+
+
+def check_ffmpeg():
+    ff, fp = shutil.which("ffmpeg"), shutil.which("ffprobe")
+    install = "winget install -e --id Gyan.FFmpeg" if IS_WIN else "brew install ffmpeg"
+
+    def fix():
+        if IS_WIN:
+            if not shutil.which("winget"):
+                return False, "winget isn't available. Install ffmpeg from https://www.gyan.dev/ffmpeg/builds/"
+            code, out = run(["winget", "install", "-e", "--id", "Gyan.FFmpeg",
+                             "--accept-package-agreements", "--accept-source-agreements", "--silent"], 1800)
+        else:
+            if not shutil.which("brew"):
+                return False, "Homebrew isn't installed. Get it from https://brew.sh, then: brew install ffmpeg"
+            code, out = run(["brew", "install", "ffmpeg"], 1800)
+        return code == 0, ("ffmpeg installed. Open a new window (or a new Claude session) so it's "
+                           "found, then re-run this check." if code == 0 else out.strip()[-600:])
+
+    if not ff:
+        return Check("ffmpeg", FAIL, "ffmpeg isn't installed",
+                     meaning="ffmpeg reads and writes every video and audio file the tools touch.",
+                     todo=install, fix=fix, fix_label=install)
+    ff_dir = Path(ff).resolve().parent
+    beside = [ff_dir / "ffprobe", ff_dir / "ffprobe.exe"]
+    if not fp or not any(p.exists() for p in beside) and Path(fp).resolve().parent != ff_dir:
+        others = _other_ffmpegs(ff)
+        if others:
+            return Check("ffmpeg", FAIL, f"The ffmpeg that runs first ({ff}) is incomplete",
+                         meaning="It has no ffprobe beside it — often a partial copy bundled with "
+                                 "another app (ImageMagick does this). A complete ffmpeg is "
+                                 f"installed at {others[0]}, but the partial one is found first.",
+                         todo="Put the complete ffmpeg's folder ahead of the partial one in your PATH "
+                              "(Windows: Settings → System → About → Advanced system settings → "
+                              "Environment Variables), or remove the partial one. Claude can walk "
+                              "you through it.")
+        return Check("ffmpeg", FAIL, "ffmpeg is installed but ffprobe isn't",
+                     meaning="ffprobe comes with every complete ffmpeg; the tools need both.",
+                     todo=install, fix=fix, fix_label=install)
+    code, out = run([ff, "-hide_banner", "-filters"], 60)
+    missing = [f for f in FFMPEG_FILTERS if (" " + f + " ") not in out]
+    version = run([ff, "-hide_banner", "-version"], 60)[1].splitlines()[:1]
+    if missing:
+        return Check("ffmpeg", FAIL, "ffmpeg is missing features: " + ", ".join(missing),
+                     meaning="This ffmpeg was built without filters the colour and loudness tools use.",
+                     todo=install + "  (a full build)", fix=fix, fix_label=install)
+    return Check("ffmpeg", OK, (version[0][:60] if version else "ffmpeg") + " (with ffprobe)")
+
+
+def skills_dir():
+    return Path.home() / ".claude" / "skills"
+
+
+def _tree_digest(folder):
+    h = hashlib.sha256()
+    for rel in ("SKILL.md", "BUILD.txt"):
+        p = folder / rel
+        if p.is_file():
+            h.update(p.read_bytes())
+    return h.hexdigest()
+
+
+IGNORE = shutil.ignore_patterns(".git", "__pycache__", "*.pyc", "fixtures", ".DS_Store")
+
+
+def install_skill(target_root=None):
+    target_root = target_root or skills_dir()
+    dest = target_root / SKILL_NAME
+    if dest.resolve() == ROOT:
+        return True, f"Already running from {dest}."
+    target_root.mkdir(parents=True, exist_ok=True)
+    if dest.exists():
+        backup = target_root / f"{SKILL_NAME}.previous-{time.strftime('%Y%m%d-%H%M%S')}"
+        dest.rename(backup)
+        note = f" The copy that was there is kept at {backup}."
+    else:
+        note = ""
+    shutil.copytree(ROOT, dest, ignore=IGNORE)
+    return True, f"Installed to {dest}.{note} Start a new Claude session to pick it up."
+
+
+def check_skill():
+    dest = skills_dir() / SKILL_NAME
+    if ROOT == dest.resolve():
+        return Check("Installed for Claude", OK, f"Running from {dest}")
+    if (dest / "SKILL.md").is_file():
+        same = _tree_digest(dest) == _tree_digest(ROOT)
+        if same:
+            return Check("Installed for Claude", OK, f"Installed at {dest}")
+        return Check("Installed for Claude", WARN, f"A different version is installed at {dest}",
+                     meaning="Claude uses the copy in that folder, not this one.",
+                     todo="Install this version over it (the old one is kept as a backup).",
+                     fix=install_skill, fix_label=f"copy this folder to {dest}")
+    if (ROOT / ".git").exists():
+        return Check("Installed for Claude", INFO, "Running from a git checkout",
+                     meaning="Claude Code finds skills in " + str(skills_dir()) + ".",
+                     todo=f"Either clone into {dest}, or run: {python_cmd()} doctor.py --install-skill")
+    return Check("Installed for Claude", FAIL, "Not installed where Claude looks for skills",
+                 meaning=f"Claude Code finds skills in {skills_dir()}. Until it's there, Claude "
+                         "won't know to use it.",
+                 todo=f"{python_cmd()} doctor.py --install-skill",
+                 fix=install_skill, fix_label=f"copy this folder to {dest}")
+
+
+def check_license():
+    try:
+        sys.path.insert(0, str(HERE))
+        import license_check
+        lic, state = license_check.read_license()
+    except Exception as e:                                    # noqa: BLE001
+        return Check("License", WARN, f"Couldn't read the license module ({type(e).__name__})")
+    if state == "broken":
+        return Check("License", WARN, "The license record doesn't match this computer",
+                     todo=f"{python_cmd()} license_check.py activate <your key>")
+    if lic:
+        return Check("License", OK, "Active: " + str(lic.get("tier")))
+    if (ROOT / ".git").exists():
+        return Check("License", INFO, "Not activated yet — friends with GitHub access are licensed "
+                                      "automatically the first time a post tool runs")
+    return Check("License", INFO, "Not activated yet",
+                 meaning="Shoot prep, card offload and footage QC work without a license. The post "
+                         "tools (sync, grade, mix, captions, timeline) need one.",
+                 todo=f"{python_cmd()} license_check.py activate <the key from your receipt email>")
+
+
+def _first_existing(paths):
+    for p in paths:
+        if Path(p).exists():
+            return str(p)
+    return None
+
+
+def check_editors():
+    pf = os.environ.get("ProgramFiles", "C:/Program Files")
+    pd = os.environ.get("PROGRAMDATA", "C:/ProgramData")
+    if IS_WIN:
+        resolve = _first_existing([Path(pf) / "Blackmagic Design" / "DaVinci Resolve" / "Resolve.exe"])
+        api = _first_existing([Path(pd) / "Blackmagic Design" / "DaVinci Resolve" / "Support" /
+                               "Developer" / "Scripting" / "Modules" / "DaVinciResolveScript.py"])
+        premiere = next(iter(sorted((Path(pf) / "Adobe").glob("Adobe Premiere Pro*"))), None) \
+            if (Path(pf) / "Adobe").is_dir() else None
+    elif IS_MAC:
+        resolve = _first_existing(["/Applications/DaVinci Resolve/DaVinci Resolve.app"])
+        api = _first_existing(["/Library/Application Support/Blackmagic Design/DaVinci Resolve/"
+                               "Developer/Scripting/Modules/DaVinciResolveScript.py"])
+        premiere = next(iter(sorted(Path("/Applications").glob("Adobe Premiere Pro*"))), None)
+    else:
+        resolve = api = premiere = None
+    found = []
+    if resolve:
+        found.append("DaVinci Resolve" + (" (scripting module found)" if api else ""))
+    if premiere:
+        found.append(Path(premiere).name)
+    if found:
+        return Check("Editing app", OK, " and ".join(found))
+    return Check("Editing app", INFO, "No DaVinci Resolve or Premiere Pro found",
+                 meaning="Only needed for the last step — building the edit timeline automatically. "
+                         "Everything before that works without one.")
+
+
+def all_checks():
+    checks = [check_python(), check_utf8(), check_packages(), check_ffmpeg(), check_skill(),
+              check_license(), check_editors()]
+    return [c for c in checks if c is not None]
+
+
+# ---- reporting --------------------------------------------------------------------------------
+def verdict(checks):
+    blocking = [c for c in checks if c.level == FAIL]
+    if not blocking:
+        return "Ready."
+    return f"Not ready yet: {len(blocking)} thing{'s' if len(blocking) > 1 else ''} to fix."
+
+
+def print_report(checks):
+    print(f"film-shoot setup check — {platform.system()} {platform.release()}, "
+          f"Python {platform.python_version()}\n")
+    for c in checks:
+        print(f"{ICON[c.level]} {c.name}: {c.summary}")
+        if c.level in (FAIL, WARN, INFO) and c.meaning:
+            print(f"     {c.meaning}")
+        if c.level in (FAIL, WARN) and c.todo:
+            print(f"     → {c.todo}")
+    print(f"\n{verdict(checks)}")
+    fixable = [c for c in checks if c.fix and c.level in (FAIL, WARN)]
+    if fixable:
+        print("Can fix automatically: " + "; ".join(c.fix_label for c in fixable) +
+              f"\n  → run: {python_cmd()} doctor.py --fix")
+
+
+def apply_fixes(checks, assume_yes):
+    fixable = [c for c in checks if c.fix and c.level in (FAIL, WARN)]
+    if not fixable:
+        return
+    print("\nFixes available:")
+    for c in fixable:
+        print(f"  • {c.name}: {c.fix_label}")
+    if not assume_yes:
+        if not sys.stdin.isatty():
+            print("\nNot applied: this isn't an interactive window. Ask the person first, then "
+                  "re-run with --fix --yes.")
+            return
+        if input("\nApply these? [y/N] ").strip().lower() not in ("y", "yes"):
+            print("Nothing changed.")
+            return
+    for c in fixable:
+        try:
+            ok, msg = c.fix()
+        except Exception as e:                                # noqa: BLE001
+            ok, msg = False, f"{type(e).__name__}: {e}"
+        print(f"{'✅' if ok else '❌'} {c.name}: {msg}")
+
+
+# ---- selftest ---------------------------------------------------------------------------------
+def selftest():
+    import tempfile
+    failures = []
+
+    def check(name, cond):
+        print(f"  {'ok ' if cond else 'FAIL'} {name}")
+        if not cond:
+            failures.append(name)
+
+    checks = all_checks()
+    check("every check returns a level", all(c.level in ICON for c in checks))
+    check("every failing check says what to do", all(c.todo for c in checks if c.level == FAIL))
+    check("json report is serialisable", bool(json.dumps([c.as_dict() for c in checks])))
+    check("verdict ready when nothing fails",
+          verdict([Check("x", OK, "")]) == "Ready." and verdict([Check("x", FAIL, "")]) != "Ready.")
+
+    with tempfile.TemporaryDirectory() as td:
+        skills = Path(td) / "skills"
+        ok, msg = install_skill(skills)
+        dest = skills / SKILL_NAME
+        check("install_skill copies the skill", ok and (dest / "SKILL.md").is_file()
+              and (dest / "scripts" / "doctor.py").is_file())
+        check("install_skill leaves out .git and caches",
+              not (dest / ".git").exists() and not list(dest.rglob("__pycache__")))
+        (dest / "marker.txt").write_text("old", encoding="utf-8")
+        ok, msg = install_skill(skills)
+        backups = list(skills.glob(SKILL_NAME + ".previous-*"))
+        check("reinstall keeps the previous copy as a backup",
+              ok and len(backups) == 1 and (backups[0] / "marker.txt").is_file())
+        check("reinstall writes a clean copy", not (dest / "marker.txt").exists())
+
+    # the doctor must stay runnable on an old Python: no syntax newer than 3.8
+    import ast
+    src = Path(__file__).read_text(encoding="utf-8")
+    try:
+        ast.parse(src, feature_version=(3, 8))
+        check("parses as Python 3.8", True)
+    except SyntaxError as e:
+        check(f"parses as Python 3.8 ({e})", False)
+
+    print(f"\n{'PASS' if not failures else 'FAIL'}: {len(failures)} failure(s)")
+    return 1 if failures else 0
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--fix", action="store_true", help="offer to fix what can be fixed")
+    ap.add_argument("--yes", action="store_true", help="with --fix: don't ask (the person already agreed)")
+    ap.add_argument("--install-skill", action="store_true", help="copy this folder to Claude's skills folder")
+    ap.add_argument("--json", action="store_true", help="machine-readable output")
+    ap.add_argument("--selftest", action="store_true")
+    a = ap.parse_args(argv)
+    if a.selftest:
+        return selftest()
+    if a.install_skill:
+        ok, msg = install_skill()
+        print(("✅ " if ok else "❌ ") + msg)
+        return 0 if ok else 1
+    checks = all_checks()
+    if a.json:
+        print(json.dumps({"verdict": verdict(checks), "python_command": python_cmd(),
+                          "checks": [c.as_dict() for c in checks]}, indent=2))
+    else:
+        print_report(checks)
+    if a.fix:
+        apply_fixes(checks, a.yes)
+    return 0 if not any(c.level == FAIL for c in checks) else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

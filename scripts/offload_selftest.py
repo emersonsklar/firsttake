@@ -76,17 +76,17 @@ def build_card(root: str) -> str:
         with open(os.path.join(card, "MISC", "REC001.WAV"), "wb") as f:
             f.write(os.urandom(256 * 1024))
 
-    with open(os.path.join(media, "C0001.XML"), "w") as f:
+    with open(os.path.join(media, "C0001.XML"), "w", encoding="utf-8") as f:
         f.write("<xml>sidecar</xml>")
-    with open(os.path.join(card, "MISC", "notes.txt"), "w") as f:
+    with open(os.path.join(card, "MISC", "notes.txt"), "w", encoding="utf-8") as f:
         f.write("camera log\n")
-    with open(os.path.join(card, ".hiddenfile"), "w") as f:
+    with open(os.path.join(card, ".hiddenfile"), "w", encoding="utf-8") as f:
         f.write("hidden\n")
     # Planted junk that must NOT be copied and must NOT move the verdict.
-    with open(os.path.join(card, ".DS_Store"), "w") as f:
+    with open(os.path.join(card, ".DS_Store"), "w", encoding="utf-8") as f:
         f.write("junk\n")
     os.makedirs(os.path.join(card, ".Spotlight-V100"))
-    with open(os.path.join(card, ".Spotlight-V100", "store"), "w") as f:
+    with open(os.path.join(card, ".Spotlight-V100", "store"), "w", encoding="utf-8") as f:
         f.write("junk\n")
     return card
 
@@ -149,7 +149,7 @@ def main(argv: list[str]) -> int:
         jm = glob.glob(os.path.join(t1, "offload-manifest-*.json"))
         check("stamped JSON manifest written", len(jm) == 1)
         if jm:
-            data = json.load(open(jm[0]))
+            data = json.load(open(jm[0], encoding="utf-8"))
             s = data["summary"]
             check("manifest reports 0 failures", s["files_failed"] == 0)
             check("manifest counts 5 files", s["files"] == 5, str(s["files"]))
@@ -171,7 +171,7 @@ def main(argv: list[str]) -> int:
         rep = glob.glob(os.path.join(t1, "offload-report-*.html"))
         check("HTML report written", len(rep) == 1)
         if rep:
-            h = open(rep[0]).read()
+            h = open(rep[0], encoding="utf-8").read()
             for tok in ("Summary", "Sources &amp; Destinations", "VERIFIED"):
                 check(f"report contains {tok!r}", tok in h)
 

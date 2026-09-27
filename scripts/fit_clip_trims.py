@@ -62,7 +62,7 @@ TARGET_BLACK = 4.0         # common black point, in 0-255 display code
 
 def fit(measurement, target_black=TARGET_BLACK, previous=None, verbose=True):
     """Derive one trim per clip from a measure_white_balance.py report."""
-    meas = measurement if isinstance(measurement, dict) else json.load(open(measurement))
+    meas = measurement if isinstance(measurement, dict) else json.load(open(measurement, encoding="utf-8"))
     keep = ((previous or {}).get("clips") or {}) if previous else {}
     clips = {}
     for name, v in (meas.get("clips") or {}).items():
@@ -271,14 +271,14 @@ def main(argv=None) -> int:
     if a.selftest:
         return selftest()
     if a.fit:
-        prev = json.load(open(a.trims)) if os.path.exists(a.trims) else None
+        prev = json.load(open(a.trims, encoding="utf-8")) if os.path.exists(a.trims) else None
         doc = fit(a.fit, a.target_black, prev)
         json.dump(doc, open(a.trims, "w", encoding="utf-8"), indent=1)
         print(f"\nwrote {a.trims}")
     if a.cubes:
         if not a.lut:
             ap.error("--cubes needs --lut (the input transform to compose onto)")
-        doc = json.load(open(a.trims))
+        doc = json.load(open(a.trims, encoding="utf-8"))
         for name, trim in (doc.get("clips") or {}).items():
             p = bake(name, trim, a.lut, a.cubes, int(doc.get("grid", GRID)),
                      not a.no_resolve_dialect)

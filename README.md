@@ -9,7 +9,7 @@ whose only job is to watch the levels. At the other end: a master, a reviewer's 
 cuts and pull clips — assembled by script, with every number in it measured.
 
 <sub>
-<code>python3</code> · <code>ffmpeg</code> · <code>numpy</code> &nbsp;•&nbsp;
+<code>python 3.12+</code> · <code>ffmpeg</code> · <code>numpy</code> &nbsp;•&nbsp;
 the measurement tools work with or without Claude
 </sub>
 
@@ -242,19 +242,30 @@ The references are written to be read when you need them. These are written to b
 
 ## Install
 
+**The easy way:** open this folder in Claude Code — the desktop app's Code tab works, no
+terminal needed — and say *"set this up for me"*. Claude follows
+[`SETUP-FOR-CLAUDE.md`](SETUP-FOR-CLAUDE.md): it checks the computer, installs what's missing
+once you've agreed to each item, and finishes with a one-minute practice run.
+
+**By hand:**
+
 ```bash
 git clone <THIS_REPO> ~/.claude/skills/film-shoot
+cd ~/.claude/skills/film-shoot
+python3 -m pip install --user -r requirements.txt     # Windows: py -3.12 -m pip ...
+python3 scripts/doctor.py          # what's ready, what isn't, and how to fix it
+python3 scripts/first_run.py       # practice offload + QC, about a minute
 ```
 
 Claude Code picks it up from `~/.claude/skills/`. For a single project instead, clone to
 `<project>/.claude/skills/film-shoot`.
 
-```bash
-pip3 install numpy xxhash ascmhl pymupdf     # xxhash/ascmhl/pymupdf optional
-```
+Requirements: **Python 3.12+**, a full `ffmpeg` with `ffprobe`, and `numpy`, `soundfile` and
+`Pillow` (`requirements.txt`). Optional: `xxhash` (faster hashing), `ascmhl`
+(generation-chained manifests), `pymupdf` (PDF page verification).
 
-Requirements: `python3`, `ffmpeg`/`ffprobe`, `numpy`. Optional: `xxhash` (faster hashing),
-`ascmhl` (generation-chained manifests), `pymupdf` (PDF page verification).
+Works on macOS and Windows. On Windows, `scripts/doctor.py --fix` also turns on Python's UTF-8
+mode, which the tools' output needs when Claude runs them.
 
 **No NLE is required, and nothing here is paid.** DaVinci Resolve Studio or Premiere Pro buys you an
 editable timeline at the end; without either, the same plan assembles with ffmpeg to a full-quality

@@ -198,7 +198,7 @@ def selftest():
     try:
         # --- a synthetic .epr, so the test does not depend on what this machine has installed
         synth = os.path.join(tmp, "template.epr")
-        with open(synth, "w") as fh:
+        with open(synth, "w", encoding="utf-8") as fh:
             fh.write("""<?xml version="1.0" encoding="UTF-8"?>
 <PremiereData Version="3">
 <PresetName>Test Preset</PresetName>
@@ -253,7 +253,7 @@ def selftest():
 
         # --- a template without the video params must be refused, not silently written
         bad = os.path.join(tmp, "audio.epr")
-        with open(bad, "w") as fh:
+        with open(bad, "w", encoding="utf-8") as fh:
             fh.write('<?xml version="1.0" encoding="UTF-8"?><PremiereData Version="3">'
                      '<A><ParamIdentifier>ADBEAudioBitrate</ParamIdentifier>'
                      '<ParamValue>0</ParamValue></A></PremiereData>')
