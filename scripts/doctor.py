@@ -169,6 +169,56 @@ def _other_ffmpegs(first):
     return out
 
 
+def _path_lists():
+    """(system, user) PATH entries on Windows, as the registry holds them, variables expanded."""
+    if not IS_WIN:
+        return [], []
+    import winreg
+
+    def read(root, key):
+        try:
+            with winreg.OpenKey(root, key) as k:
+                raw = winreg.QueryValueEx(k, "Path")[0]
+        except OSError:
+            return []
+        return [os.path.expandvars(e).rstrip("\\/") for e in raw.split(";") if e.strip()]
+    return (read(winreg.HKEY_LOCAL_MACHINE,
+                 r"SYSTEM\CurrentControlSet\Control\Session Manager\Environment"),
+            read(winreg.HKEY_CURRENT_USER, "Environment"))
+
+
+def path_order_advice(partial_dir, full_dir, system, user):
+    """What to change so full_dir's ffmpeg is found before partial_dir's.
+
+    ⚠️ Windows searches the ENTIRE system list before the user list. So when the partial copy is in
+    the system list, no reordering of the user list can fix it -- the full one has to be added to
+    the system list, above the partial one. Advice that just says "move it ahead in your PATH"
+    sends people to the wrong list (it did: that's how this function came to exist).
+    """
+    def norm(d):
+        return os.path.normcase(os.path.normpath(str(d)))
+    sysn, usern = [norm(e) for e in system], [norm(e) for e in user]
+    pd, fd = norm(partial_dir), norm(full_dir)
+    where_partial = "system" if pd in sysn else ("user" if pd in usern else None)
+    where_full = "system" if fd in sysn else ("user" if fd in usern else None)
+    sys_ui = ("Start → type \"Edit the system environment variables\" → Environment Variables → "
+              "under SYSTEM variables (the lower list), edit Path")
+    user_ui = ("Start → type \"Edit environment variables for your account\" → edit Path "
+               "(the upper list)")
+    if where_partial == "system" and where_full != "system":
+        return (f"Add {full_dir} to the SYSTEM Path, above {partial_dir}. Windows reads the whole "
+                f"system list before your account's list, so changing your account's list can't "
+                f"fix this — even with the partial one moved to the end of the system list. "
+                f"Needs an administrator. ({sys_ui}.)")
+    if where_partial and where_partial == where_full:
+        ui = sys_ui if where_partial == "system" else user_ui
+        return f"In the {where_partial.upper()} Path, move {full_dir} above {partial_dir}. ({ui}.)"
+    if where_partial == "user" and where_full is None:
+        return f"Add {full_dir} to your account's Path, above {partial_dir}. ({user_ui}.)"
+    return (f"Make {full_dir} come before {partial_dir} in PATH — or rename or remove the partial "
+            f"ffmpeg.exe. Claude can walk you through it.")
+
+
 def check_ffmpeg():
     ff, fp = shutil.which("ffmpeg"), shutil.which("ffprobe")
     install = "winget install -e --id Gyan.FFmpeg" if IS_WIN else "brew install ffmpeg"
@@ -195,14 +245,18 @@ def check_ffmpeg():
     if not fp or not any(p.exists() for p in beside) and Path(fp).resolve().parent != ff_dir:
         others = _other_ffmpegs(ff)
         if others:
+            if IS_WIN:
+                system, user = _path_lists()
+                todo = path_order_advice(Path(ff).parent, Path(others[0]).parent, system, user)
+                todo += " Or rename that partial ffmpeg.exe (it only affects the app it came with)."
+            else:
+                todo = (f"Put {Path(others[0]).parent} before {Path(ff).parent} in your PATH, or "
+                        "remove the partial copy.")
             return Check("ffmpeg", FAIL, f"The ffmpeg that runs first ({ff}) is incomplete",
                          meaning="It has no ffprobe beside it — often a partial copy bundled with "
                                  "another app (ImageMagick does this). A complete ffmpeg is "
                                  f"installed at {others[0]}, but the partial one is found first.",
-                         todo="Put the complete ffmpeg's folder ahead of the partial one in your PATH "
-                              "(Windows: Settings → System → About → Advanced system settings → "
-                              "Environment Variables), or remove the partial one. Claude can walk "
-                              "you through it.")
+                         todo=todo)
         return Check("ffmpeg", FAIL, "ffmpeg is installed but ffprobe isn't",
                      meaning="ffprobe comes with every complete ffmpeg; the tools need both.",
                      todo=install, fix=fix, fix_label=install)
@@ -213,7 +267,10 @@ def check_ffmpeg():
         return Check("ffmpeg", FAIL, "ffmpeg is missing features: " + ", ".join(missing),
                      meaning="This ffmpeg was built without filters the colour and loudness tools use.",
                      todo=install + "  (a full build)", fix=fix, fix_label=install)
-    return Check("ffmpeg", OK, (version[0][:60] if version else "ffmpeg") + " (with ffprobe)")
+    # "ffmpeg version 9.0.2-full_build-www.gyan.dev Copyright ..." -> "ffmpeg 9.0.2-full_build-www.gyan.dev"
+    parts = version[0].split() if version else []
+    label = f"ffmpeg {parts[2]}" if len(parts) > 2 and parts[1] == "version" else "ffmpeg"
+    return Check("ffmpeg", OK, label + " (with ffprobe)")
 
 
 def skills_dir():
@@ -411,6 +468,18 @@ def selftest():
         check("reinstall keeps the previous copy as a backup",
               ok and len(backups) == 1 and (backups[0] / "marker.txt").is_file())
         check("reinstall writes a clean copy", not (dest / "marker.txt").exists())
+
+    # PATH-order advice: the system list always wins, whatever the order inside the user list
+    im, fl = r"C:\Program Files\ImageMagick", r"C:\Users\x\WinGet\Links"
+    a = path_order_advice(im, fl, system=[r"C:\Windows", im], user=[fl])
+    check("partial in SYSTEM (even last), full in user -> add full to SYSTEM",
+          "SYSTEM Path" in a and "can't" in a)
+    a = path_order_advice(im, fl, system=[im, fl], user=[])
+    check("both in system -> reorder the system list", "SYSTEM Path, move" in a)
+    a = path_order_advice(im, fl, system=[], user=[im, fl])
+    check("both in user -> reorder the user list", "USER Path, move" in a)
+    a = path_order_advice(im, fl, system=[], user=[im])
+    check("partial in user, full nowhere -> add full to the user list", "account's Path" in a)
 
     # the doctor must stay runnable on an old Python: no syntax newer than 3.8
     import ast

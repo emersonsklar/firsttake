@@ -42,9 +42,12 @@ re-run of the check still shows a fixed item as missing, ask them to start a new
 and pick up from step 1.
 
 **If the check says "the ffmpeg that runs first is incomplete":** another app (often ImageMagick)
-put a partial ffmpeg ahead of the complete one. Walk them through moving the complete one's folder
-up in their PATH (Windows: Start → "Edit environment variables for your account"), or removing
-the partial one. Don't edit system-wide settings yourself.
+put a partial ffmpeg ahead of the complete one. The check says exactly which list to change —
+follow it. ⚠️ On Windows the whole SYSTEM Path is searched before the account's Path, so when the
+partial copy is in the system list, only adding the complete one to the SYSTEM list (above it)
+works; moving things in the account's list, or moving the partial one to the end of the system
+list, does not. That needs an administrator, so walk them through it rather than doing it
+yourself. Renaming the partial `ffmpeg.exe` also works.
 
 ## 3. Install it where Claude looks
 
