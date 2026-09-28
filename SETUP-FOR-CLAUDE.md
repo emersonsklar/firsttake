@@ -80,6 +80,28 @@ one backup on purpose to show the re-check catching it, and runs footage QC. Wal
 what they're seeing, especially the offload report it opens. The practice clips are deliberately
 flawed, so QC saying NOT READY is the expected result.
 
+## ⚠️ If an EXTERNAL DRIVE stops being readable mid-session
+
+Symptom: `Operation not permitted` (EPERM) opening a file on a mounted volume, while `os.path.exists`
+and file sizes still work — and while another application (the NLE, say) reads the same files
+perfectly throughout.
+
+**It is not the drive, and unplugging is not the remedy.** A running process can lose the OS grant
+that lets it read a removable volume; a fresh launch re-acquires it. Measured once: it survived
+disabling the agent's own sandbox, which rules out everything except the OS.
+
+In order:
+
+1. **Quit the terminal app completely (⌘Q, not just the window) and start a new session.** This has
+   been the fix, with no setting changed.
+2. Only if that fails, check **System Settings → Privacy & Security → Files and Folders** for the app
+   and enable **Removable Volumes**, or grant it **Full Disk Access**. TCC only applies on a fresh
+   launch, so quit and reopen afterwards either way.
+
+🔴 **Say this before the person starts unplugging an archive drive.** On a shoot, the external volume
+is often the only copy of the footage that is not on a card, and a panicked remount of a drive that
+was never faulty is a real risk for no benefit.
+
 ## 6. What's next
 
 Their kit profile: `references/onboarding.md`. That's the real start, and it's what makes QC

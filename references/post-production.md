@@ -163,6 +163,36 @@ from its output read "know i almost went in the shower with my". Take **timings 
 and spelling from the transcript**, joined in order with the normalised forms asserted equal, so a
 silent misalignment cannot put one word's text on another word's clock.
 
+### 🔴 A ZERO-LENGTH GAP BETWEEN TWO SPEAKERS IS AN ARTEFACT, NOT AN EDIT
+
+An aligner once reported one speaker's last word ending and the next speaker's first word beginning
+at **the same instant**. Measured on the delivered stems, the real gap was **620 ms**; at the other
+end of the same cut it was 270 ms early on a word onset.
+
+Two people do not hand over with no air. **Treat a 0.000 gap as a red flag**, and read levels either
+side of the claimed boundary — a real gap shows both tracks dropping 20–40 dB. An aligner reaches
+for a butt-join exactly where it is least sure, which is the turn change you were about to cut on.
+
+### 🔴 TRANSCRIBING THE AUDIO IS NECESSARY AND NOT SUFFICIENT: read the CAPTION across the join
+
+A dialogue cut was verified by transcribing the delivered render — clean, nothing surviving. The
+**subtitle still contained a word the render removes**, reading *"It I like the idea as well"* over
+audio that says only *"I like the idea as well"*.
+
+The mechanism is worth understanding because it is not obvious: the transcript decided **which words
+are inside the programme using the RECOGNISER's times**, and only then re-timed them with the
+aligner. The recogniser was 0.27 s early on that word, which put a removed word inside the kept
+range. Picture, mix, and ASR of the render all passed.
+
+So check both clocks across any cut: **what a listener hears, and what a reader sees.** They come
+from different instruments and usually only one of them is being measured.
+
+⚠️ **And when a measurement and a machine disagree, correct the machine's number — do not move the
+edit.** The tempting repair was to shift the cut earlier so the bad recogniser time fell inside the
+removed span; that would have clipped the previous speaker, whose decay was still at −25 dBFS 60 ms
+before it. Pin the measured time in whatever override table the transcript builder has, so a
+measurement outranks both the recogniser and the aligner.
+
 **Validate every in and out against an energy-onset check** — the first point where
 short-term energy rises ~12 dB above the preceding floor, measured at 10 ms resolution on
 the speaker's *own* channel. That is a different question from "where does the recogniser
@@ -1274,7 +1304,16 @@ interview time all landed on a shot boundary — so a new splice inherits the sa
 verifier can assert it: **every seam carries an angle change, and no two adjacent shots share an
 angle.**
 
-For length, take the precedent rather than a feeling: the shortest existing island in that
+🔴 **PREFER PULLING AN EXISTING HANDOVER ONTO THE SEAM OVER INVENTING AN ISLAND.** A cut that
+removes a span can take the only *other* angle in that stretch with it, leaving the same shot either
+side of the new seam. The instinct is to insert a short cutaway. First look at what is already
+scheduled: on one cut a tight→wide change sat **3.04 s** late, and three earlier seams on the same
+programme were fixed the same way (2.3–2.9 s late). Moving a cut that already exists is free;
+inventing one adds a cut the edit never asked for, and it has to be justified to whoever approved
+the edit.
+
+Only invent an island when nothing else is scheduled anywhere near the seam. For length, take the
+precedent rather than a feeling: the shortest existing island in that
 programme was **3.50 s**, and it existed to cover exactly this. A cutaway to the listener while the
 speaker finishes a question is natural material, so the camouflage costs nothing dramatically.
 
