@@ -441,6 +441,69 @@ the plan said, every render probe found its requested frame, the grade and graph
 right. **No check was asking whether a cut changed the framing**, which is the only
 property that matters here.
 
+#### 🔴 Moving a handover onto one seam can strip the cover off another
+
+The fix above — *move the nearest scheduled handover onto the seam* — is right, and it is
+also how you introduce a jump cut somewhere else. The handover you move was already
+covering something.
+
+A later cut on the same programme hit this exactly. The new seam fell 142 frames before an
+existing splice whose own cover was the shot boundary the repair wanted to move. Pulling
+that boundary back onto the new seam was the *nearer* of two candidate repairs — half the
+displacement — and it would have left the old splice playing one angle across a 26-frame
+jump, **in the last four seconds of an already-approved programme, minutes away from the
+edit that caused it.**
+
+So a tool that repairs the shot list must validate against **every splice the programme
+will have after the edit**, not just the one it is fixing:
+
+- **Derive the seam list from the new range list**, not from a constant and not from the
+  old one. Everything downstream of the cut shifts.
+- **Build both candidate repairs** — push the preceding handover forward, pull the
+  following one back — and let validation choose. Distance is a tie-breaker, never a
+  reason. Here the shorter move was the wrong one.
+- **Refuse to run if the plan on disk already fails the check.** Then a pre-existing
+  uncovered seam reports itself instead of being built on, and a mistake in the seam
+  derivation shows up as "the approved plan is broken" rather than as a silent pass.
+- **Say which repair was chosen, which was rejected, and why** — in the tool's output and
+  in the shoot's notes. "33 shots → 33, no cut added" is the line that tells a reviewer
+  the grammar did not change.
+
+Negative-test it the same way: replay the *previous* cut through the new code and assert it
+reproduces the shipped shot list byte for byte. That is the only evidence that generalising
+the rule did not change an approved edit.
+
+#### The cover's length is usually not yours to choose
+
+Two seams close together pin the shot between them: it is exactly the distance between
+them, and no version of the edit makes it longer. Extending the cover past the second seam
+would leave *that* seam uncovered.
+
+This matters because "make the cutaway longer" is a natural note to give and sometimes an
+impossible one to take. Work out the constraint before promising anything — and say which
+it is, because the answer is often **not** the reason anyone assumes. On one programme the
+cover was suspected of being short because it came from a 9:16 social cut; it was actually
+pinned by a pause trim in the sign-off, and the 16:9 version came out the same length for
+the same reason.
+
+The other thing that can be spoken for is a **framing**. A two-line sign-off between two
+people needs the wide that holds both of them; if the wide has to be on the far side of a
+seam, it cannot also be the cover for it. Check what each framing is *for* in the closing
+minute before assigning one to a repair.
+
+#### Measure visibility per framing, at delivery geometry, against the motion floor
+
+A mean absolute frame difference means nothing on its own — a talking head differs from its
+own next frame. Report it as a **ratio over the adjacent-frame difference measured at the
+same place on the same angle**. Near 1.0 the jump would read as ordinary motion; several
+times the floor and it will be seen.
+
+And measure it **through the delivery window**. The same two frames of the same camera read
+**6.11** through a 1215×2160 vertical crop and **3.91** through the 16:9 window the
+programme actually delivers, because the vertical crop discards the part of frame the
+subject moves across. A number measured on a picture nobody will watch is not evidence
+about the picture they will.
+
 ### Frames are the grid; samples are derived from them
 
 At 29.97 one frame is **1601.6 samples** at 48 kHz — not an integer, so the two grids
