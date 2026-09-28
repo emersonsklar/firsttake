@@ -124,7 +124,7 @@ ALLOW_VALUES = [
                      "the application, not an account id. It is asserted against the running "
                      "app in premiere_bridge/probe rather than trusted, so it has to appear "
                      "in the source."),
-    ("sklarstad@gmail.com", "the licensor's published support address, not a client or a "
+    ("support@sklarstad.com", "the licensor's published support address, not a client or a "
                             "person's private inbox. license_check.py prints it in every refusal "
                             "so a buyer always knows where to go; it is on the storefront and in "
                             "the EULA too."),

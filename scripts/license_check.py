@@ -101,7 +101,7 @@ PRODUCT_PER_PROJECT = "GIYdhvDPNKtl2jb-tKs5RQ=="
 PRODUCT_ANNUAL = "rtKaXWC5El-CsLmqDCAVDA=="
 BUY_URL = "https://sklar.gumroad.com/l/firsttake"
 RENEW_URL = "https://sklar.gumroad.com/l/firsttake-annual"
-SUPPORT = "sklarstad@gmail.com"
+SUPPORT = "support@sklarstad.com"
 
 # Ed25519 public key for comp tokens. The private half is held by the licensor, never in a repo.
 COMP_PUBLIC_KEY = bytes.fromhex("417b20c731c9a7d01774d874b63bb60a9971cea5dc91e12b88f8405df163cda6")
