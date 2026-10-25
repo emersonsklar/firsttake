@@ -251,7 +251,7 @@ The references are written to be read when you need them. These are written to b
 it runs will do — the **terminal CLI**, the **desktop app**'s Code tab, **claude.ai/code** in a
 browser, or the **VS Code / JetBrains** extensions. The desktop app and the web app need no terminal
 at all. It then follows [`SETUP-FOR-CLAUDE.md`](SETUP-FOR-CLAUDE.md): checks the computer, installs
-what's missing once you've agreed to each item, and finishes with a one-minute practice run.
+what's missing once you've agreed to each item, and finishes with a practice run on test footage (a couple of minutes).
 
 **As a Claude Code plugin:**
 
@@ -270,7 +270,7 @@ git clone https://github.com/emersonsklar/firsttake ~/.claude/skills/firsttake
 cd ~/.claude/skills/firsttake
 python3 -m pip install --user -r requirements.txt     # Windows: py -3.12 -m pip ...
 python3 scripts/doctor.py          # what's ready, what isn't, and how to fix it
-python3 scripts/first_run.py       # practice offload + QC, about a minute
+python3 scripts/first_run.py       # practice run on test footage, a few seconds
 ```
 
 Claude Code picks it up from `~/.claude/skills/`. For a single project instead, clone to

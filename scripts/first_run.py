@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-first_run — a five-minute tour on practice footage, before the first real shoot.
+first_run — a practice run on test footage (it takes seconds), before the first real shoot.
 
     python first_run.py                      # writes to Documents/firsttake-first-run
     python first_run.py --out <folder>
@@ -86,7 +86,7 @@ def run_tour(out: Path, open_report: bool) -> int:
     base = out / stamp
     card = base / "practice-card"
     backups = [base / "backup-drive-1", base / "backup-drive-2"]
-    say(f"First run: a practice shoot, start to finish.\nEverything goes in: {base}")
+    say(f"First run: a practice run on test footage, start to finish.\nEverything goes in: {base}")
 
     step(1, "a practice camera card")
     clips = {

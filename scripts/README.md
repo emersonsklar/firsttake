@@ -24,7 +24,7 @@ Standalone. Plain Python and ffmpeg — every one takes `--help`, most take `--s
 | `nle_handover.py` | pack a cut for someone using the other NLE, and let them verify it arrived whole |
 | `scrub_check.py` | refuse to publish credentials or client-identifying material |
 | `doctor.py` | is this computer ready? plain-English checklist; `--fix` installs what's missing (asks first) |
-| `first_run.py` | one-minute tour on practice footage: offload, verify, catch a planted fault, QC |
+| `first_run.py` | practice run on test footage (seconds): offload, verify, catch a planted fault, QC |
 
 ## Run the harnesses after any edit
 
