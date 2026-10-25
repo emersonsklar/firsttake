@@ -2,7 +2,7 @@
 """
 first_run — a five-minute tour on practice footage, before the first real shoot.
 
-    python first_run.py                      # writes to Documents/film-shoot-first-run
+    python first_run.py                      # writes to Documents/firsttake-first-run
     python first_run.py --out <folder>
     python first_run.py --open               # also open the offload report in the browser
     python first_run.py --selftest
@@ -43,7 +43,7 @@ PY = sys.executable
 
 def default_out() -> Path:
     docs = Path.home() / "Documents"
-    return (docs if docs.is_dir() else Path.home()) / "film-shoot-first-run"
+    return (docs if docs.is_dir() else Path.home()) / "firsttake-first-run"
 
 
 def say(msg: str = "") -> None:

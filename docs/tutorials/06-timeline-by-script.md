@@ -261,8 +261,8 @@ rather than staying quiet — an empty list is much more often an omission than 
 1. Enable developer mode for UXP plugins in Premiere's preferences.
 2. Load `scripts/premiere/uxp/` as an unpackaged plugin (UXP Developer Tool → *Add Plugin* → its
    `manifest.json` → *Load*).
-3. Open the panel: **Window → Extensions → film-shoot timeline**, and press *Start listening*.
-4. If the panel reports no native `fs`, press **Job folder…** and pick `~/.film-shoot/premiere-jobs`
+3. Open the panel: **Window → Extensions → FirstTake timeline**, and press *Start listening*.
+4. If the panel reports no native `fs`, press **Job folder…** and pick `~/.firsttake/premiere-jobs`
    (create it first). With `localFileSystem: "fullAccess"` granted it usually finds real paths itself.
 
 **Why a job folder and not a socket:** a file written and read back is the same verification discipline used

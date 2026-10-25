@@ -12,7 +12,7 @@ at it. The PDF is written beside the source, never into this skill.
 
     cd <shoot folder> && /path/to/build_day_sheets.py      # finds 09-DAY-SHEETS.html here
     ./build_day_sheets.py --src <shoot>/09-DAY-SHEETS.html
-    FILM_SHOOT_DAY_SHEETS=<path> ./build_day_sheets.py
+    FIRSTTAKE_DAY_SHEETS=<path> ./build_day_sheets.py
     ./build_day_sheets.py --src <path> --check             # verify only
     ./build_day_sheets.py --selftest
 
@@ -49,13 +49,13 @@ DEFAULT_NAMES = ("09-DAY-SHEETS.html", "day-sheets.html", "DAY-SHEETS.html")
 
 
 def resolve_src(argv: list[str]) -> str | None:
-    """--src PATH, else $FILM_SHOOT_DAY_SHEETS, else a known name in the working directory."""
+    """--src PATH, else $FIRSTTAKE_DAY_SHEETS, else a known name in the working directory."""
     for i, a in enumerate(argv):
         if a == "--src" and i + 1 < len(argv):
             return os.path.abspath(argv[i + 1])
         if a.startswith("--src="):
             return os.path.abspath(a.split("=", 1)[1])
-    env = os.environ.get("FILM_SHOOT_DAY_SHEETS")
+    env = os.environ.get("FIRSTTAKE_DAY_SHEETS")
     if env:
         return os.path.abspath(env)
     for name in DEFAULT_NAMES:
@@ -212,7 +212,7 @@ def main(argv: list[str]) -> int:
         print("  A day sheet belongs to ONE SHOOT, so it lives in that shoot's folder — not in")
         print("  this skill. Point the tool at it:\n")
         print("      ./build_day_sheets.py --src /path/to/<shoot>/09-DAY-SHEETS.html")
-        print("      FILM_SHOOT_DAY_SHEETS=/path/to/sheet.html ./build_day_sheets.py")
+        print("      FIRSTTAKE_DAY_SHEETS=/path/to/sheet.html ./build_day_sheets.py")
         print("      cd <shoot folder> && %s/build_day_sheets.py" % HERE)
         print("\n  Run from a shoot folder it looks for: %s" % ", ".join(DEFAULT_NAMES))
         if SRC is not None:
@@ -260,10 +260,10 @@ def selftest() -> int:
         check("--src is honoured", resolve_src(["--src", sheet]) == sheet)
         check("--src=PATH form is honoured", resolve_src([f"--src={sheet}"]) == sheet)
 
-        env_before = os.environ.pop("FILM_SHOOT_DAY_SHEETS", None)
-        os.environ["FILM_SHOOT_DAY_SHEETS"] = sheet
+        env_before = os.environ.pop("FIRSTTAKE_DAY_SHEETS", None)
+        os.environ["FIRSTTAKE_DAY_SHEETS"] = sheet
         check("the environment variable is honoured", resolve_src([]) == sheet)
-        os.environ.pop("FILM_SHOOT_DAY_SHEETS")
+        os.environ.pop("FIRSTTAKE_DAY_SHEETS")
 
         cwd = os.getcwd()
         try:
@@ -304,7 +304,7 @@ def selftest() -> int:
         check("PDF path is NOT inside the skill", not str(PDF).startswith(HERE))
 
         if env_before is not None:
-            os.environ["FILM_SHOOT_DAY_SHEETS"] = env_before
+            os.environ["FIRSTTAKE_DAY_SHEETS"] = env_before
 
     print(f"\n{'PASS' if not failures else 'FAIL'}: {len(failures)} failure(s)")
     return 1 if failures else 0

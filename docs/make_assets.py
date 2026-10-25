@@ -43,16 +43,22 @@ TAGLINE = "FROM AN EMPTY ROOM TO A DELIVERED MASTER"
 SUBLINE = ("Plan it, shoot it, and finish it —\n"
            "graded, mixed, captioned, verified.")
 
-F_SANS = "/System/Library/Fonts/HelveticaNeue.ttc"
-F_BOLD = "/System/Library/Fonts/Supplemental/Arial Bold.ttf"
-F_MONO = "/System/Library/Fonts/Menlo.ttc"
+# First path that exists wins. The macOS fonts are the reference render; the Windows ones are
+# the nearest equivalents (Arial Bold is the same face; Arial is metric-compatible with
+# Helvetica; Consolas stands in for Menlo), so a Windows rebuild changes bytes but not layout.
+F_SANS = ["/System/Library/Fonts/HelveticaNeue.ttc", "C:/Windows/Fonts/arial.ttf"]
+F_BOLD = ["/System/Library/Fonts/Supplemental/Arial Bold.ttf", "C:/Windows/Fonts/arialbd.ttf"]
+F_MONO = ["/System/Library/Fonts/Menlo.ttc", "C:/Windows/Fonts/consola.ttf"]
 
 
-def font(path, size, index=0):
-    try:
-        return ImageFont.truetype(path, size, index=index)
-    except Exception:
-        return ImageFont.load_default()
+def font(paths, size, index=0):
+    for path in paths:
+        try:
+            return ImageFont.truetype(path, size, index=index)
+        except Exception:
+            continue
+    raise SystemExit(f"none of these fonts exist: {paths} -- the default bitmap font would "
+                     "silently render every label at 11 px")
 
 
 def sans(s):  return font(F_SANS, s, 0)
@@ -122,7 +128,7 @@ def hero(w=1280, h=460):
     d.line(pts2, fill=(30, 52, 62), width=2, joint="curve")
     d.line([(64, base), (w - 64, base)], fill=(44, 56, 72), width=1)
 
-    text(d, (64, 74), "film-shoot", bold(92), INK)
+    text(d, (64, 74), "FirstTake", bold(92), INK)
     text(d, (66, 178), TAGLINE, mono(21), ACCENT)
     text(d, (64, 218), SUBLINE, sans(24), DIM, spacing=8)
 
@@ -540,16 +546,16 @@ def thumb(size=1024):
     wm_size = int(round(104 * px))
     for _ in range(24):
         wm = bold(max(6, wm_size))
-        got = w_of(d, "FILM-SHOOT", wm)
+        got = w_of(d, "FirstTake", wm)
         if got <= target_w or wm_size <= 6:
             break
         wm_size = int(wm_size * target_w / got) if got else wm_size - 1
     wm = bold(max(6, wm_size))
 
-    text(d, (S / 2, S * (0.455 if detail == "full" else 0.47)), "FILM-SHOOT", wm, INK, anchor="mm")
+    text(d, (S / 2, S * (0.455 if detail == "full" else 0.47)), "FirstTake", wm, INK, anchor="mm")
 
     # the rule under it, as wide as the word plus a little air
-    ww = w_of(d, "FILM-SHOOT", wm)
+    ww = w_of(d, "FirstTake", wm)
     ry = int(round(S * (0.525 if detail == "full" else 0.545)))
     d.line([((S - ww) / 2, ry), ((S + ww) / 2, ry)], fill=ACCENT,
            width=max(2, int(round(5 * px))))

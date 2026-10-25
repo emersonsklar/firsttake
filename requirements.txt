@@ -1,4 +1,4 @@
-# film-shoot: Python packages the tools need.
+# FirstTake: Python packages the tools need.
 # Requires Python 3.12 or newer (shootcheck uses 3.12 f-string syntax).
 # Also required, outside Python: ffmpeg with ffprobe (a full build).
 #   Windows: winget install -e --id Gyan.FFmpeg        macOS: brew install ffmpeg

@@ -572,7 +572,7 @@ def assemble(plan: dict, out: str, work: str | None = None, keep: bool = False,
     if errs:
         raise AssembleError("the plan cannot be assembled by this backend:\n  - "
                             + "\n  - ".join(errs))
-    tmp = work or tempfile.mkdtemp(prefix="film-shoot-ffmpeg-")
+    tmp = work or tempfile.mkdtemp(prefix="firsttake-ffmpeg-")
     os.makedirs(tmp, exist_ok=True)
     try:
         a = Assembler(plan, out, tmp, verbose=verbose)
@@ -837,7 +837,7 @@ def _check_concat_boundary(media: dict, work: str) -> list[str]:
 def selfcheck() -> int:
     """Generate media, assemble three plans, and measure the results."""
     print("assemble_ffmpeg selfcheck — builds real files and measures them\n")
-    work = tempfile.mkdtemp(prefix="film-shoot-ffmpeg-selfcheck-")
+    work = tempfile.mkdtemp(prefix="firsttake-ffmpeg-selfcheck-")
     try:
         print("  generating sources whose luma encodes clip and frame number...")
         media = _make_self_media(work)

@@ -45,7 +45,7 @@ try:
 except ImportError:                                        # pragma: no cover
     nle_ir = None
 
-DEFAULT_JOBDIR = os.path.expanduser("~/.film-shoot/premiere-jobs")
+DEFAULT_JOBDIR = os.path.expanduser("~/.firsttake/premiere-jobs")
 DEFAULT_TIMEOUT = 600.0
 
 
@@ -102,7 +102,7 @@ class Bridge(object):
         raise PanelTimeout(
             "no result after %.0f s.\n"
             "  Check, in this order:\n"
-            "    1. Is the film-shoot panel open in Premiere?  Window > Extensions\n"
+            "    1. Is the FirstTake panel open in Premiere?  Window > Extensions\n"
             "    2. Is it 'listening'?  The button must read 'Stop listening'.\n"
             "    3. Is its job folder %s ?\n"
             "    4. Is Premiere showing a modal dialog? A modal blocks the whole plugin host, and\n"

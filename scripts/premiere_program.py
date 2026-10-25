@@ -253,7 +253,7 @@ def emit_sequence(plan: dict) -> Program:
     p.call("getSettings", on="seq", as_="settings")
     p.call("setVideoFrameRate", on="settings", args=[{"$fps": list(fps)}])
     p.call("setVideoFrameRect", on="settings", args=[{"$rectf": [w, h]}])
-    p.transaction("film-shoot: sequence rate and raster", [
+    p.transaction("FirstTake: sequence rate and raster", [
         {"call": "createSetSettingsAction", "on": "seq", "args": [{"$": "settings"}], "as": "act"},
         {"addAction": "act"},
     ])
@@ -390,7 +390,7 @@ def emit_placement(plan: dict, media_index: dict[str, int]) -> Program:
 
         in_tick = tick(node["src_in"], fps)
         out_tick = tick(node["src_in"] + node["len"], fps)     # EXCLUSIVE, as Resolve's endFrame is
-        p.transaction(f"film-shoot: in/out {where}", [
+        p.transaction(f"FirstTake: in/out {where}", [
             {"cast": "ClipProjectItem", "on": item, "as": "clip"},
             {"call": "createSetInOutPointsAction", "on": "clip",
              "args": [in_tick, out_tick], "as": "act"},
@@ -403,7 +403,7 @@ def emit_placement(plan: dict, media_index: dict[str, int]) -> Program:
         p.get("SequenceEditor", as_="SE")
         p.call("getEditor", on="SE", args=[{"$": seq}], as_=ed)
         p.require(ed, f"{where}: no sequence editor")
-        p.transaction(f"film-shoot: place {where}", [
+        p.transaction(f"FirstTake: place {where}", [
             {"call": "createOverwriteItemAction", "on": ed,
              "args": [{"$": item}, tick(node["rec"], fps), v_index, v_index], "as": "act"},
             {"addAction": "act"},
@@ -424,7 +424,7 @@ def emit_placement(plan: dict, media_index: dict[str, int]) -> Program:
         p.get("ticksNumber", on=du, as_=f"out_dur_{where}")
 
         if node.get("disabled"):
-            p.transaction(f"film-shoot: disable {where}", [
+            p.transaction(f"FirstTake: disable {where}", [
                 {"call": "createSetDisabledAction", "on": got, "args": [True], "as": "act"},
                 {"addAction": "act"},
             ])
@@ -556,7 +556,7 @@ def _emit_crop(p: Program, plan: dict, node: dict, comps, clip: str, where: str)
     kfp = p.name("kfpos")
     p.call("createKeyframe", on=scale, args=[geo["scale_percent"]], as_=kfs)
     p.call("createKeyframe", on=pos, args=[{"$pointf": geo["position"]}], as_=kfp)
-    p.transaction(f"film-shoot: crop {where}", [
+    p.transaction(f"FirstTake: crop {where}", [
         {"call": "createSetValueAction", "on": scale, "args": [{"$": kfs}, True], "as": "a1"},
         {"addAction": "a1"},
         {"call": "createSetValueAction", "on": pos, "args": [{"$": kfp}, True], "as": "a2"},
@@ -607,7 +607,7 @@ def _emit_keyframe_set(p: Program, param: str, pts: list[dict], base: int, fps, 
         steps.append({"call": "createAddKeyframeAction", "on": param,
                       "args": [{"$": kf}], "as": f"k{i}"})
         steps.append({"addAction": f"k{i}"})
-    p.transaction(f"film-shoot: {label} {where}", steps)
+    p.transaction(f"FirstTake: {label} {where}", steps)
 
     times = p.name("times")
     p.call("getKeyframeListAsTickTimes", on=param, as_=times)
@@ -660,7 +660,7 @@ def _emit_transition(p: Program, node: dict, clip: str, tr: str, where: str, fps
         p.add(**{"new": "AddTransitionOptions", "as": opts})
         p.call("setApplyToStart", on=opts, args=[side == "in"])
         p.call("setDuration", on=opts, args=[tick(spec["frames"], fps)])
-        p.transaction(f"film-shoot: transition {side} {where}", [
+        p.transaction(f"FirstTake: transition {side} {where}", [
             {"call": "createAddVideoTransitionAction", "on": clip,
              "args": [{"$": vt}, {"$": opts}], "as": "act"},
             {"addAction": "act"},
@@ -754,7 +754,7 @@ def emit_audio(plan: dict, media_index: dict[str, int]) -> Program:
         p.call("getItems", on=root, as_=items)
         p.get(str(idx), on=items, as_=item)
         p.require(item, f"{where}: audio media not found")
-        p.transaction(f"film-shoot: audio in/out {where}", [
+        p.transaction(f"FirstTake: audio in/out {where}", [
             {"cast": "ClipProjectItem", "on": item, "as": "clip"},
             {"call": "createSetInOutPointsAction", "on": "clip",
              "args": [tick(node["src_in"], fps),
@@ -766,7 +766,7 @@ def emit_audio(plan: dict, media_index: dict[str, int]) -> Program:
         p.active_sequence(seq)
         p.get("SequenceEditor", as_="SE")
         p.call("getEditor", on="SE", args=[{"$": seq}], as_=ed)
-        p.transaction(f"film-shoot: audio place {where}", [
+        p.transaction(f"FirstTake: audio place {where}", [
             {"call": "createOverwriteItemAction", "on": ed,
              "args": [{"$": item}, tick(node["rec"], fps), a_index, a_index], "as": "act"},
             {"addAction": "act"},
@@ -1004,8 +1004,8 @@ def selftest() -> int:
     p_steps = place.steps
     order = [s["transaction"] for s in p_steps if "transaction" in s]
     check("every placement is preceded by its own in/out",
-          order == ["film-shoot: in/out V1#0", "film-shoot: place V1#0",
-                    "film-shoot: in/out V1#1", "film-shoot: place V1#1"], str(order))
+          order == ["FirstTake: in/out V1#0", "FirstTake: place V1#0",
+                    "FirstTake: in/out V1#1", "FirstTake: place V1#1"], str(order))
 
     # 🔴 the editor must be re-acquired per clip: a handle dies when the project mutates
     check("the editor is re-acquired for every placement",

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-doctor — is this computer ready for film-shoot? Says what's missing, in plain English, and can
+doctor — is this computer ready for FirstTake? Says what's missing, in plain English, and can
 fix most of it.
 
     python doctor.py                    # check everything, change nothing
@@ -51,7 +51,7 @@ for _stream in (sys.stdout, sys.stderr):
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent                                            # the skill folder
 MIN_PYTHON = (3, 12)
-SKILL_NAME = "film-shoot"                                     # must match SKILL.md's name:
+SKILL_NAME = "firsttake"                                     # must match SKILL.md's name:
 PACKAGES = [("numpy", "numpy"), ("soundfile", "soundfile"), ("PIL", "Pillow")]
 FFMPEG_FILTERS = ("lut3d", "ebur128")
 IS_WIN = sys.platform == "win32"
@@ -399,7 +399,7 @@ def verdict(checks):
 
 
 def print_report(checks):
-    print(f"film-shoot setup check — {platform.system()} {platform.release()}, "
+    print(f"FirstTake setup check — {platform.system()} {platform.release()}, "
           f"Python {platform.python_version()}\n")
     for c in checks:
         print(f"{ICON[c.level]} {c.name}: {c.summary}")

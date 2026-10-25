@@ -58,7 +58,7 @@ yourself. Renaming the partial `ffmpeg.exe` also works.
 
 If the check says it isn't installed for Claude: `<python> scripts/doctor.py --install-skill`
 
-That copies this folder to `~/.claude/skills/film-shoot` (a previous copy is kept as a backup).
+That copies this folder to `~/.claude/skills/firsttake` (a previous copy is kept as a backup).
 Tell them to start a new Claude session afterwards so it's picked up.
 
 ## 4. The first run

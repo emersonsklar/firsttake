@@ -15,7 +15,7 @@ Client names cannot be listed inside this repository -- a file enumerating them
 would leak exactly what it is meant to protect. So private terms are read from
 whichever of these exists, and BOTH are gitignored:
 
-    $FILM_SHOOT_DENYLIST        path to a newline-separated file of terms
+    $FIRSTTAKE_DENYLIST        path to a newline-separated file of terms
     .scrub-denylist             same, in the repo root
 
 If neither exists the scan still runs, but it can only catch generic patterns --
@@ -137,7 +137,7 @@ ALLOW_VALUES = [
 
 def denylist() -> tuple[list[str], str | None]:
     """Private terms, and where they came from (None = no list found)."""
-    for path in (os.environ.get("FILM_SHOOT_DENYLIST"),
+    for path in (os.environ.get("FIRSTTAKE_DENYLIST"),
                  os.path.join(ROOT, ".scrub-denylist")):
         if path and os.path.isfile(path):
             terms = [ln.strip() for ln in open(path, encoding="utf-8")
@@ -301,7 +301,7 @@ def main(argv: list[str]) -> int:
     else:
         print("  ⚠️  NO private-term list found — generic patterns only.")
         print("     Client and project names will NOT be detected. Set")
-        print("     FILM_SHOOT_DENYLIST or create .scrub-denylist (both gitignored).")
+        print("     FIRSTTAKE_DENYLIST or create .scrub-denylist (both gitignored).")
 
     findings = scan(paths, terms)
     if not findings:

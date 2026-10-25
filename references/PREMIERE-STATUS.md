@@ -138,7 +138,7 @@ list. `emit_ir.py --pregraded PATH --pregraded-base FRAME` does the rebasing; re
 ## Architecture, and the reload situation
 
 - The panel is `scripts/premiere/uxp/main.js`. Python talks to it through a job folder
-  (`~/.film-shoot/premiere-jobs`) — see `premiere_bridge.py`. It **self-listens** on load.
+  (`~/.firsttake/premiere-jobs`) — see `premiere_bridge.py`. It **self-listens** on load.
 - ⚠️ **A change to the panel needs a manual reload in the UXP Developer Tool.** There is no
   programmatic reload; `@adobe/uxp-devtools-cli` did not work on a first attempt and needs UDT's
   service running regardless.

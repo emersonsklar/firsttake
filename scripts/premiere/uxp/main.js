@@ -1,5 +1,5 @@
 /*
- * film-shoot timeline — Premiere Pro UXP backend.
+ * FirstTake timeline — Premiere Pro UXP backend.
  *
  * Premiere has no external scripting entry point. Resolve ships a Python module that talks to the
  * running application, so a build script can be driven from a shell; UXP is a JavaScript runtime
@@ -135,12 +135,12 @@ async function adoptDefaultJobFolder() {
     log("could not work out the home directory — press 'Job folder…' to choose one");
     return;
   }
-  const path = home + "/.film-shoot/premiere-jobs";
+  const path = home + "/.firsttake/premiere-jobs";
   try {
     await nativeFs.readdir(path);          // exists and is listable
   } catch (e) {
     try {
-      try { await nativeFs.mkdir(home + "/.film-shoot"); } catch (e0) { /* may exist */ }
+      try { await nativeFs.mkdir(home + "/.firsttake"); } catch (e0) { /* may exist */ }
       await nativeFs.mkdir(path);
     } catch (e2) {
       log("default job folder " + path + " is not usable (" + errString(e2).split("\n")[0]
@@ -770,7 +770,7 @@ async function opProbePlacement(job) {
   const outTick = tickAt((job.srcInFrame || 0) + askFrames, fr);
 
   // The cast happens INSIDE the lock; a handle cast out here is dead by the time it is used.
-  lockedTransaction(project, "film-shoot probe: set in/out", (c) => {
+  lockedTransaction(project, "FirstTake probe: set in/out", (c) => {
     const clip = castClip(item);
     if (!clip) throw new Error("project item " + item.name + " is not a clip project item");
     c.addAction(clip.createSetInOutPointsAction(inTick, outTick));
@@ -789,7 +789,7 @@ async function opProbePlacement(job) {
     readBackOutFrames: gotOut ? gotOut.ticksNumber / fr.ticksPerFrame : null,
   };
 
-  lockedTransaction(project, "film-shoot probe: overwrite", (c) => {
+  lockedTransaction(project, "FirstTake probe: overwrite", (c) => {
     c.addAction(editor.createOverwriteItemAction(item, at, job.videoTrack || 0,
                                                  job.audioTrack || 0));
   });
@@ -1254,7 +1254,7 @@ async function opProbeFilter(job) {
 
   const chain = await trackItem.getComponentChain();
   const before = chain.getComponentCount();
-  lockedTransaction(project, "film-shoot probe: append " + mn, (c) => {
+  lockedTransaction(project, "FirstTake probe: append " + mn, (c) => {
     c.addAction(chain.createAppendComponentAction(filter));
   });
 
@@ -1318,7 +1318,7 @@ async function opProbeFilter(job) {
         if ((await cc.getMatchName()) === mn) mine = cc;
       }
       if (mine) {
-        lockedTransaction(project, "film-shoot probe: remove " + mn, (c) => {
+        lockedTransaction(project, "FirstTake probe: remove " + mn, (c) => {
           c.addAction(chain3.createRemoveComponentAction(mine));
         });
       }
@@ -1385,7 +1385,7 @@ async function opBuild(job) {
       rect.height = wantH;
       await settings.setVideoFrameRect(rect);
     }
-    lockedTransaction(project, "film-shoot: sequence rate and raster", (c) => {
+    lockedTransaction(project, "FirstTake: sequence rate and raster", (c) => {
       c.addAction(seq.createSetSettingsAction(settings));
     });
   }
@@ -1459,7 +1459,7 @@ async function opBuild(job) {
       // The in/out setters live on ClipProjectItem, and the cast must happen inside the lock.
       const inTick = tickAt(node.src_in, fr);
       const outTick = tickAt(node.src_in + node.len, fr);   // exclusive until the probe says otherwise
-      lockedTransaction(project, "film-shoot: in/out " + where, (c) => {
+      lockedTransaction(project, "FirstTake: in/out " + where, (c) => {
         const clip = castClip(item);
         if (!clip) {
           throw new Error(where + ": " + item.name + " is not a clip project item, so it has no "
@@ -1468,7 +1468,7 @@ async function opBuild(job) {
         c.addAction(clip.createSetInOutPointsAction(inTick, outTick));
       });
 
-      lockedTransaction(project, "film-shoot: place " + where, (c) => {
+      lockedTransaction(project, "FirstTake: place " + where, (c) => {
         c.addAction(editor.createOverwriteItemAction(item, tickAt(node.rec, fr), vIdx, vIdx));
       });
 
@@ -1484,7 +1484,7 @@ async function opBuild(job) {
       }
 
       if (node.disabled) {
-        lockedTransaction(project, "film-shoot: disable " + where, (c) => {
+        lockedTransaction(project, "FirstTake: disable " + where, (c) => {
           c.addAction(placed.createSetDisabledAction(true));
         });
       }
@@ -1541,12 +1541,12 @@ async function opBuild(job) {
       if (!item) throw new Error(where + ": audio media not found: " + mediaPath);
       const inTick = tickAt(node.src_in, fr);
       const outTick = tickAt(node.src_in + node.len, fr);
-      lockedTransaction(project, "film-shoot: audio in/out " + where, (c) => {
+      lockedTransaction(project, "FirstTake: audio in/out " + where, (c) => {
         const clip = castClip(item);
         if (!clip) throw new Error(where + ": not a clip project item");
         c.addAction(clip.createSetInOutPointsAction(inTick, outTick));
       });
-      lockedTransaction(project, "film-shoot: audio place " + where, (c) => {
+      lockedTransaction(project, "FirstTake: audio place " + where, (c) => {
         c.addAction(editor.createOverwriteItemAction(item, tickAt(node.rec, fr), aIdx, aIdx));
       });
       report.placed.push({ where: where, audioTrack: aIdx });
@@ -1582,7 +1582,7 @@ async function opBuild(job) {
   }
 
   if (strayCount) {
-    lockedTransaction(project, "film-shoot: remove camera audio", (c) => {
+    lockedTransaction(project, "FirstTake: remove camera audio", (c) => {
       const ed = ppro.SequenceEditor.getEditor(seq);            // fresh, inside the lock
       let sel = null;
       ppro.TrackItemSelection.createEmptySelection((s) => { sel = s; });
@@ -1661,7 +1661,7 @@ async function applyGrade(project, trackItem, node, report, where) {
   if (!comp) throw new Error(where + ": could not create AE.ADBE Lumetri");
 
   const chain = await trackItem.getComponentChain();
-  lockedTransaction(project, "film-shoot: lumetri " + where, (c) => {
+  lockedTransaction(project, "FirstTake: lumetri " + where, (c) => {
     c.addAction(chain.createAppendComponentAction(comp));
   });
 
@@ -1690,7 +1690,7 @@ async function applyGrade(project, trackItem, node, report, where) {
       + "pre-grade the media instead, and declare it baked.");
   }
 
-  lockedTransaction(project, "film-shoot: lut " + where, (c) => {
+  lockedTransaction(project, "FirstTake: lut " + where, (c) => {
     c.addAction(target.param.createSetValueAction(
       target.param.createKeyframe(grade.lut), true));
   });
@@ -1755,7 +1755,7 @@ async function applyTransition(project, track, trackItem, node, fr, report, wher
     }
 
     const applyToStart = side === "in";
-    lockedTransaction(project, "film-shoot: transition " + side + " " + where, (c) => {
+    lockedTransaction(project, "FirstTake: transition " + side + " " + where, (c) => {
       const tr = ppro.TransitionFactory.createVideoTransition(match);
       if (!tr) throw new Error(where + ": createVideoTransition(" + match + ") returned nothing");
       const opts = new ppro.AddTransitionOptions();
@@ -1836,7 +1836,7 @@ async function applyCrop(project, trackItem, node, plan, report, where) {
   const kfScale = scaleP.param.createKeyframe(scalePercent);
   const kfPos = posP.param.createKeyframe(new ppro.PointF(pos[0], pos[1]));
 
-  lockedTransaction(project, "film-shoot: crop " + where, (cc) => {
+  lockedTransaction(project, "FirstTake: crop " + where, (cc) => {
     cc.addAction(scaleP.param.createSetValueAction(kfScale, true));
     cc.addAction(posP.param.createSetValueAction(kfPos, true));
   });
@@ -1913,7 +1913,7 @@ async function applyFade(project, trackItem, node, plan, fr, report, where) {
     built.push({ kf: kf, f: pt.f, shaped: !!shaped });
   }
 
-  lockedTransaction(project, "film-shoot: fade " + where, (cc) => {
+  lockedTransaction(project, "FirstTake: fade " + where, (cc) => {
     cc.addAction(p.param.createSetTimeVaryingAction(true));
     for (const b of built) {
       cc.addAction(p.param.createAddKeyframeAction(b.kf));
@@ -1968,7 +1968,7 @@ async function applyKeyframes(project, trackItem, node, plan, fr, report, where)
       pts.push(kf);
     }
 
-    lockedTransaction(project, "film-shoot: keyframes " + set.param + " " + where, (cc) => {
+    lockedTransaction(project, "FirstTake: keyframes " + set.param + " " + where, (cc) => {
       cc.addAction(target.param.createSetTimeVaryingAction(true));
       for (const kf of pts) {
         cc.addAction(target.param.createAddKeyframeAction(kf));
@@ -2145,7 +2145,7 @@ async function opStripAudio(job) {
   }
 
   if (strays) {
-    lockedTransaction(project, "film-shoot: remove camera audio", (c) => {
+    lockedTransaction(project, "FirstTake: remove camera audio", (c) => {
       const ed = ppro.SequenceEditor.getEditor(seq);
       let sel = null;
       ppro.TrackItemSelection.createEmptySelection((s) => { sel = s; });
@@ -2295,7 +2295,7 @@ document.getElementById("clear").addEventListener("click", () => {
 });
 
 initFs().then(() => {
-  log("film-shoot timeline panel " + PANEL_VERSION);
+  log("FirstTake timeline panel " + PANEL_VERSION);
   log("host: " + (uxp.host ? uxp.host.name + " " + uxp.host.version : "unknown"));
 
   /* Start listening automatically.
