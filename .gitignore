@@ -27,3 +27,7 @@ ascmhl/
 
 # Generated viewing LUTs — deterministic from make_log_view_lut.py
 *.cube
+
+# The one exception to "never commit media": first_run's synthetic sample interview.
+# It is generated, not shot, and contains no real person or client material.
+!scripts/first_run_footage/*.mov

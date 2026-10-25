@@ -146,20 +146,25 @@ def denylist() -> tuple[list[str], str | None]:
     return [], None
 
 
+def is_media(path: str) -> bool:
+    return os.path.splitext(path)[1].lower() in SKIP_EXT or looks_binary(path)
+
+
 def files_to_scan(staged: bool) -> list[str]:
+    # Both modes skip media the same way. --staged once skipped nothing: harmless while every
+    # media file was gitignored, but the first committed .mov came back as two "email
+    # addresses" -- random H.264 bytes matching the regex -- and blocked the push.
     if staged:
         r = subprocess.run(["git", "-C", ROOT, "diff", "--cached", "--name-only",
                             "--diff-filter=ACM"], capture_output=True, text=True)
         names = [n for n in r.stdout.split("\n") if n.strip()]
         return [os.path.join(ROOT, n) for n in names
-                if os.path.isfile(os.path.join(ROOT, n))]
+                if os.path.isfile(os.path.join(ROOT, n)) and not is_media(os.path.join(ROOT, n))]
     out = []
     for dirpath, dirnames, filenames in os.walk(ROOT):
         dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS]
         for fn in filenames:
-            if os.path.splitext(fn)[1].lower() in SKIP_EXT:
-                continue
-            if looks_binary(os.path.join(dirpath, fn)):
+            if is_media(os.path.join(dirpath, fn)):
                 continue
             out.append(os.path.join(dirpath, fn))
     return sorted(out)
@@ -254,6 +259,28 @@ def selftest() -> int:
         # --- but a plaintext file with the same secret must still be caught
         if not scan_text("plain.txt", "key=AKIAIOSFODNN7EXAMPLE\n"):
             failures.append("a plaintext secret was skipped")
+
+        # --- --staged must skip staged media exactly as the full scan does, and still scan
+        # the text staged beside it
+        global ROOT
+        repo = os.path.join(tmp, "repo")
+        os.makedirs(repo)
+        subprocess.run(["git", "init", "-q", repo], check=True)
+        with open(os.path.join(repo, "clip.mov"), "wb") as f:
+            f.write(b"\x00\x00\x00\x18ftypqt  " + b"1@f.gj" * 16)
+        with open(os.path.join(repo, "blob.unknownext"), "wb") as f:
+            f.write(b"\x89\x00\xff\xfe" * 64 + b".@N2.gj")
+        with open(os.path.join(repo, "notes.txt"), "w", encoding="utf-8") as f:
+            f.write("ping someone@somecompany.net\n")
+        subprocess.run(["git", "-C", repo, "add", "-A"], check=True)
+        saved, ROOT = ROOT, repo
+        try:
+            staged = sorted(os.path.basename(p) for p in files_to_scan(staged=True))
+        finally:
+            ROOT = saved
+        if staged != ["notes.txt"]:
+            failures.append(f"--staged scanned {staged}; expected only the text file, "
+                            "with the staged .mov and binary blob skipped")
 
         # --- every ALLOW and ALLOW_VALUES entry must carry a reason
         for frag, why in ALLOW:

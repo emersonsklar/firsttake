@@ -65,10 +65,13 @@ Tell them to start a new Claude session afterwards so it's picked up.
 
 `<python> scripts/first_run.py --open`
 
-It runs in seconds; with you explaining each step, allow a couple of minutes. It makes practice clips, offloads them to two backups with verification, damages
-one backup on purpose to show the re-check catching it, and runs footage QC. Walk them through
-what they're seeing, especially the offload report it opens. The practice clips are deliberately
-flawed, so QC saying NOT READY is the expected result.
+It runs in seconds; with you explaining each step, allow a couple of minutes. It makes a practice
+card from a short two-camera interview that ships with FirstTake (a wide and a tight shot), offloads
+it to two backups with verification, damages one backup on purpose to show the re-check catching it,
+runs footage QC, and syncs the two cameras from their audio. Walk them through what they're seeing,
+especially the offload report it opens. The practice clips are deliberately flawed, so QC saying
+NOT READY is the expected result. The interview is synthetic, which is worth saying if they ask who
+she is.
 
 ## ⚠️ If an EXTERNAL DRIVE stops being readable mid-session
 

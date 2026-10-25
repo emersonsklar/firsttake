@@ -7,13 +7,18 @@ first_run — a practice run on test footage (it takes seconds), before the firs
     python first_run.py --open               # also open the offload report in the browser
     python first_run.py --selftest
 
-What it does, in order, on clips it makes itself (nothing of yours is read or changed):
+What it does, in order, on sample footage that ships with it (nothing of yours is read or changed):
 
-  1. makes a practice "camera card" with two short clips -- one with dead-silent audio (the
-     transmitter-left-off mistake), one recorded too hot
+  1. makes a practice "camera card" from a short two-camera interview -- a wide shot and a
+     tight shot -- with a problem planted in each: the interviewer's wireless channel dead
+     (the transmitter-left-off mistake), and the tight camera's audio recorded too hot
   2. offloads the card to two backup folders and verifies every copy
   3. damages one byte of one backup on purpose, and shows the re-check catching it
   4. runs footage QC on the clips and reports what it found, in plain words
+  5. syncs the two cameras from their audio alone and checks the answer against the
+     known offset
+
+The sample interview is synthetic (see first_run_footage/README.md for how it was made).
 
 It exists so the
 first time someone sees a verified offload or a QC report is not on a real card at a real shoot.
@@ -39,6 +44,9 @@ for _stream in (sys.stdout, sys.stderr):                      # see doctor.py: W
 
 HERE = Path(__file__).resolve().parent
 PY = sys.executable
+FOOTAGE = HERE / "first_run_footage"
+STEPS = 5
+SYNC_TOLERANCE_S = 0.05
 
 
 def default_out() -> Path:
@@ -51,7 +59,7 @@ def say(msg: str = "") -> None:
 
 
 def step(n: int, title: str) -> None:
-    say(f"\n── Step {n} of 4: {title}")
+    say(f"\n── Step {n} of {STEPS}: {title}")
 
 
 def tool(name: str, *args: str) -> subprocess.CompletedProcess:
@@ -60,14 +68,12 @@ def tool(name: str, *args: str) -> subprocess.CompletedProcess:
                           encoding="utf-8", errors="replace", env=env)
 
 
-def make_clip(path: Path, audio_filter: str) -> None:
-    """A 6-second 720p clip at 29.97 with a test pattern and a 440 Hz tone."""
+def make_clip(src: Path, path: Path, audio_filter: str) -> None:
+    """Copy a sample clip with a fault planted in its audio. The picture is copied, not re-encoded."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    cmd = ["ffmpeg", "-v", "error", "-y",
-           "-f", "lavfi", "-i", "testsrc2=size=1280x720:rate=30000/1001:duration=6",
-           "-f", "lavfi", "-i", f"sine=frequency=440:sample_rate=48000:duration=6,{audio_filter}",
-           "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "pcm_s24le", "-ac", "2",
-           "-shortest", str(path)]
+    cmd = ["ffmpeg", "-v", "error", "-y", "-i", str(src),
+           "-map", "0:v", "-map", "0:a", "-c:v", "copy",
+           "-af", audio_filter, "-c:a", "pcm_s24le", str(path)]
     r = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
     if r.returncode != 0:
         raise RuntimeError("ffmpeg couldn't make the practice clip: " + r.stderr.strip()[:300])
@@ -82,6 +88,11 @@ def run_tour(out: Path, open_report: bool) -> int:
         say("ffmpeg isn't set up yet, so the tour can't make practice clips.\n"
             "Run the setup check first:  doctor.py --fix")
         return 2
+    truth_file = FOOTAGE / "ground_truth.json"
+    if not truth_file.is_file():
+        say(f"The sample footage is missing ({FOOTAGE}). Reinstall FirstTake to restore it.")
+        return 2
+    truth = json.loads(truth_file.read_text(encoding="utf-8"))
     stamp = dt.datetime.now().strftime("%Y-%m-%d_%H%M%S")
     base = out / stamp
     card = base / "practice-card"
@@ -89,15 +100,21 @@ def run_tour(out: Path, open_report: bool) -> int:
     say(f"First run: a practice run on test footage, start to finish.\nEverything goes in: {base}")
 
     step(1, "a practice camera card")
+    media = card / "DCIM" / "100MEDIA"
     clips = {
-        "C0001.MOV": ("volume=-60dB", "audio almost silent — like a wireless mic that was left off"),
-        "C0002.MOV": ("volume=18dB", "audio recorded far too loud"),
+        # channel 2 is the interviewer's lav; -60 dB on it alone, channel 1 untouched
+        "C0001.MOV": (truth["a"]["file"], "pan=stereo|c0=c0|c1=0.001*c1",
+                      "camera A, the wide shot: the interviewer's wireless channel is almost "
+                      "silent — like a transmitter that was left off"),
+        "C0002.MOV": (truth["b"]["file"], "volume=18dB",
+                      "camera B, the tight shot: audio recorded far too loud"),
     }
-    for name, (filt, _) in clips.items():
-        make_clip(card / "DCIM" / "100MEDIA" / name, filt)
-    say("Made 2 six-second clips, each with a problem planted on purpose:")
-    for name, (_, why) in clips.items():
+    for name, (src, filt, _) in clips.items():
+        make_clip(FOOTAGE / src, media / name, filt)
+    say("Made 2 clips from a short two-camera interview, each with a problem planted on purpose:")
+    for name, (_, _, why) in clips.items():
         say(f"  • {name}: {why}")
+    say("(On a real shoot each camera has its own card; they share one here to keep it short.)")
 
     step(2, "offload the card to two backups, and verify every copy")
     for b in backups:
@@ -164,13 +181,36 @@ def run_tour(out: Path, open_report: bool) -> int:
         "your kit profile, and until you've made one it uses a demanding default (4K, 10-bit).\n"
         "Making your profile is the first thing to do with Claude before a real shoot.")
 
+    step(5, "sync the two cameras from their audio")
+    r = tool("sync_cameras.py", "--json", str(media / "C0001.MOV"), str(media / "C0002.MOV"))
+    try:
+        sync = next(iter(json.loads(r.stdout).values()))
+    except (ValueError, StopIteration):
+        say("Sync didn't return a result:\n" + (r.stdout + r.stderr).strip()[-600:])
+        return 2
+    planted = float(truth["b_offset_s"])
+    got = sync.get("offset")
+    synced = got is not None and abs(got - planted) <= SYNC_TOLERANCE_S
+    say("The two cameras share no timecode and nobody clapped. Camera B was started "
+        f"{planted:.2f} s after camera A.")
+    if got is None:
+        say("⚠️ Sync found no match between the two clips — that's a problem with this setup; "
+            "please report it.")
+    else:
+        say(f"Sync measured {got:+.3f} s from the sound alone ({sync['locked']} of "
+            f"{sync['total']} probes agree)" +
+            (", even with the faults planted in step 1." if synced else
+             f" — ⚠️ more than {SYNC_TOLERANCE_S * 1000:.0f} ms off; please report it."))
+    say("These clips are too short to measure drift (it needs a couple of minutes); on a real\n"
+        "interview the same tool also tells you whether the two cameras' clocks drift apart.")
+
     say("\n── Done")
     say(f"• Offload report: {report}" if report else "• (no offload report was written)")
     say(f"• Practice files: {base}  (safe to delete)")
     say("Next: ask Claude to set up your kit profile, then plan your first real shoot.")
     if open_report and report:
         webbrowser.open(report.as_uri())
-    return 0 if caught else 1
+    return 0 if caught and synced else 1
 
 
 def selftest() -> int:

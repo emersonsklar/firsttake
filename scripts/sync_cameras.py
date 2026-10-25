@@ -42,8 +42,10 @@ except ImportError:
 FPS = 100          # envelope frames per second; 10 ms resolution
 SR = 16000         # plenty for a speech envelope
 PROBE = 60.0       # seconds per probe window
+SHORT_PROBE_MIN = 3.0  # shortest probe a short clip is cut into; less is too few onsets
 MIN_SCORE = 8.0    # peak-to-median ratio below which a probe has not locked
 AGREE_S = 1.0      # probes within this many seconds of each other are one cluster
+MIN_DRIFT_SPAN = 120.0  # probes closer together than this cannot resolve tens of ppm
 MAX_PLAUSIBLE_PPM = 5000.0  # beyond this a "drift" figure is a mismatch, not a clock
 
 
@@ -106,16 +108,33 @@ def locate(ref_env, probe):
     return i / float(FPS), (float(c[i]) / med if med > 0 else 0.0)
 
 
-def measure(ref_env, other_env, other_dur):
-    """Probe at several points. Spread between probes is the drift measurement."""
+def probe_plan(other_dur):
+    """(probe length, probe starts) for a recording of this length.
+
+    A long take gets 60 s probes spread across it. A take too short for even one of
+    those -- a 15 s practice clip, a pickup -- is cut into three overlapping probes of
+    half its length instead. One probe the length of the whole clip would only fit
+    inside a reference that wholly contains it, so a partly-overlapping pair of short
+    clips would never lock; and three probes still give the agreement check something
+    to reject when a probe lands outside the overlap.
+    """
     starts = [t for t in (30, 90, 180, 300, 450, 600, 900, 1200, 1500, 1800)
               if t + PROBE <= other_dur]
-    if not starts:
-        starts = [0.0] if other_dur > 5 else []
+    if starts:
+        return PROBE, starts
+    win = max(SHORT_PROBE_MIN, min(PROBE, other_dur / 2.0))
+    if other_dur < win:
+        return win, []
+    return win, sorted(set(round(float(s), 2) for s in np.linspace(0.0, other_dur - win, 3)))
+
+
+def measure(ref_env, other_env, other_dur):
+    """Probe at several points. Spread between probes is the drift measurement."""
+    win, starts = probe_plan(other_dur)
     rows = []
     for s in starts:
         a = int(s * FPS)
-        probe = other_env[a:a + int(PROBE * FPS)]
+        probe = other_env[a:a + int(win * FPS)]
         at, score = locate(ref_env, probe)
         if at is not None:
             rows.append({"probe_at": s, "found_at": at, "offset": at - s, "score": score})
@@ -144,7 +163,8 @@ def measure(ref_env, other_env, other_dur):
         # drift across the span the probes cover, expressed as parts per million
         span = max(r["probe_at"] for r in locked) - min(r["probe_at"] for r in locked)
         out["span"] = float(span)
-        if span >= 120 and len(locked) >= 2:
+        out["probe_s"] = float(win)
+        if span >= MIN_DRIFT_SPAN and len(locked) >= 2:
             lo = min(locked, key=lambda r: r["probe_at"])
             hi = max(locked, key=lambda r: r["probe_at"])
             ppm = float((hi["offset"] - lo["offset"]) / span * 1e6)
@@ -200,6 +220,10 @@ def report(ref, others, as_json=False, quiet=False):
                 note = ("consistent with 29.97 vs 30.000 -- check both cameras' frame rates"
                         if abs(ppm) > 200 else "no meaningful drift")
                 print("  drift   %+.0f ppm  (%s)" % (ppm, note))
+            elif "drift_implausible_ppm" not in r and r.get("span", 0) < MIN_DRIFT_SPAN:
+                # Say so rather than print nothing: silence reads as "no drift".
+                print("  drift   NOT MEASURED: the probes span %.0f s; drift needs %.0f s or more."
+                      % (r.get("span", 0), MIN_DRIFT_SPAN))
             if r["spread"] > 0.5:
                 print("  WARNING spread above 0.5 s: the offset is not constant, so a single")
                 print("          sync point will not hold. Treat the drift figure as real.")
@@ -331,6 +355,36 @@ def selftest():
               % ("%.3f" % got if got is not None else "no lock",
                  r.get("rejected"), r.get("scored"),
                  ("%.0f" % ppm) if ppm is not None else "n/a"))
+
+        # 6. SHORT CLIPS -- a 15 s practice take used to get one probe the length of
+        # the whole clip, which only fits inside a reference that wholly contains it.
+        # Plant a short pair that only PARTLY overlaps (B rolled 1.37 s after A and
+        # ran 2.5 s past A's end) and assert the offset comes back, and that no drift
+        # figure is invented from probes a few seconds apart.
+        short_src = os.path.join(tmp, "short_src.wav")
+        _synth(short_src, 20, seed=5)
+        short_a = os.path.join(tmp, "short_a.wav")
+        _run(["ffmpeg", "-y", "-v", "error", "-i", short_src, "-t", "15",
+              "-c:a", "pcm_s16le", short_a])
+        short_b = os.path.join(tmp, "short_b.wav")
+        _run(["ffmpeg", "-y", "-v", "error", "-ss", "1.37", "-i", short_src, "-t", "16.13",
+              "-c:a", "pcm_s16le", short_b])
+        r = report(short_a, [short_b], as_json=True, quiet=True)[short_b]
+        got = r.get("offset")
+        ok = (got is not None and abs(got - 1.37) <= 0.05
+              and "drift_ppm" not in r and "drift_implausible_ppm" not in r)
+        check("short, partly-overlapping clips: offset recovered, no drift claimed", ok,
+              "offset %s, %d/%d probes locked, %s"
+              % ("%.3f" % got if got is not None else "no lock", r["locked"], r["total"],
+                 "drift %.0f ppm" % r["drift_ppm"] if "drift_ppm" in r else "no drift figure"))
+
+        # 7. and short unrelated audio must not lock confidently either
+        short_alien = os.path.join(tmp, "short_alien.wav")
+        _synth(short_alien, 14, seed=4242)
+        r = report(short_a, [short_alien], as_json=True, quiet=True)[short_alien]
+        check("short unrelated audio does not lock confidently",
+              r["locked"] < 2 or r.get("spread", 9) > 0.5,
+              "locked %d/%d spread %.3f" % (r["locked"], r["total"], r.get("spread", -1)))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

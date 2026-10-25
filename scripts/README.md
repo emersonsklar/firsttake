@@ -24,7 +24,7 @@ Standalone. Plain Python and ffmpeg — every one takes `--help`, most take `--s
 | `nle_handover.py` | pack a cut for someone using the other NLE, and let them verify it arrived whole |
 | `scrub_check.py` | refuse to publish credentials or client-identifying material |
 | `doctor.py` | is this computer ready? plain-English checklist; `--fix` installs what's missing (asks first) |
-| `first_run.py` | practice run on test footage (seconds): offload, verify, catch a planted fault, QC |
+| `first_run.py` | practice run on a short two-camera sample interview (seconds): offload, verify, catch a planted fault, QC, sync |
 
 ## Run the harnesses after any edit
 
@@ -90,7 +90,10 @@ The post-stage harnesses plant ground truth rather than checking self-consistenc
 `sync_cameras` plants known offsets and a 1000 ppm clock difference and asserts the
 offset and the drift both come back, plus a **partly-overlapping** pair — the case that
 once produced a confident wrong offset and −354294 ppm of "drift" — and asserts both that
-the offset is right and that the non-overlapping probes were rejected;
+the offset is right and that the non-overlapping probes were rejected. It also plants a
+**short** partly-overlapping pair (15 s clips, too short for a 60 s probe — which used to mean
+no lock at all) and asserts the offset comes back without a drift figure being invented from
+probes seconds apart;
 `diarize_by_channel` plants a two-lavalier
 conversation with known speakers and known isolation and asserts the attribution,
 the isolation figure, and its refusal to run on one mix copied twice.
