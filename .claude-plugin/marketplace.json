@@ -1,0 +1,24 @@
+{
+  "name": "firsttake",
+  "description": "FirstTake by Sklarstad LLC: a free, open-source Claude Code skill that carries a video shoot from planning through a delivered master.",
+  "owner": {
+    "name": "Sklarstad LLC",
+    "email": "support@sklarstad.com"
+  },
+  "plugins": [
+    {
+      "name": "firsttake",
+      "source": "./",
+      "description": "Plan, shoot and finish video: verified card offload, footage QC, multi-camera sync with no shared timecode, and edit, grade, mix, captions and delivery. No editing software required.",
+      "version": "1.0.0",
+      "author": {
+        "name": "Sklarstad LLC",
+        "email": "support@sklarstad.com"
+      },
+      "homepage": "https://sklarstad.com/firsttake/",
+      "repository": "https://github.com/emersonsklar/firsttake",
+      "license": "Apache-2.0",
+      "keywords": ["video-production", "filmmaking", "offload", "qc", "ffmpeg", "davinci-resolve", "premiere-pro"]
+    }
+  ]
+}

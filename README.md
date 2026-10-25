@@ -253,6 +253,16 @@ browser, or the **VS Code / JetBrains** extensions. The desktop app and the web 
 at all. It then follows [`SETUP-FOR-CLAUDE.md`](SETUP-FOR-CLAUDE.md): checks the computer, installs
 what's missing once you've agreed to each item, and finishes with a one-minute practice run.
 
+**As a Claude Code plugin:**
+
+```
+/plugin marketplace add emersonsklar/firsttake
+/plugin install firsttake@firsttake
+```
+
+Then say *"set up FirstTake for me"* so it can check your computer and install ffmpeg and the
+Python packages.
+
 **By hand:**
 
 ```bash
