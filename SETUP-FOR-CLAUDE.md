@@ -65,7 +65,7 @@ Tell them to start a new Claude session afterwards so it's picked up.
 
 `<python> scripts/first_run.py --open`
 
-About a minute. It makes practice clips, offloads them to two backups with verification, damages
+It runs in seconds; with you explaining each step, allow a couple of minutes. It makes practice clips, offloads them to two backups with verification, damages
 one backup on purpose to show the re-check catching it, and runs footage QC. Walk them through
 what they're seeing, especially the offload report it opens. The practice clips are deliberately
 flawed, so QC saying NOT READY is the expected result.
