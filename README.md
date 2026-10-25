@@ -151,10 +151,20 @@ refuse *before* you offer it a handover.
 </div>
 
 Clap at the top of the take. You should still do it — it is free and survives everything. But a clap
-gives you **one point in time**, and the expensive failure is not offset, it is **drift**: 29.97 and
-30.000 are both sold as "30p" and pull apart about a frame every 33 seconds. Over forty minutes two
-angles end up roughly **70 frames** apart and no single sync point fixes it. Add a third body and it
-is three pairs of clocks, not one.
+gives you **one point in time**, and the expensive failure is not offset, it is **drift**. Mixed
+rates on their own are not the problem: if every file is labelled with the rate it really carries,
+Resolve and Premiere play each at its own rate and repeat or drop a frame to fit the timeline. Drift
+comes from what the NLE cannot see:
+
+- **A clip fitted to the timeline frame for frame.** Interpret Footage, a changed clip frame rate, or
+  a container that says 30.000 when the camera shot 29.97. Now it slides about a frame every
+  33 seconds, and over forty minutes two angles end up roughly **70 frames** apart.
+- **Clocks that are never exactly nominal.** Two "29.97" bodies, or a camera and a separate
+  recorder, disagree by tens of ppm. Every file claims the nominal rate, so there is nothing for the
+  NLE to correct. It is small — a frame or two over a long take — and visible on a lav against a wide.
+- **Variable frame rate** from phones and some action cams, which slips unevenly.
+
+A single sync point fixes none of these. Add a third body and it is three pairs of clocks, not one.
 
 `sync_cameras.py` probes in up to ten places, so **the spread between probes is the drift
 measurement**:
@@ -163,7 +173,7 @@ measurement**:
 |---|---|
 | spread under ~50 ms across a long span | one constant offset; a single sync point holds |
 | spread growing with probe position | genuine drift — check both cameras' frame rates |
-| drift near ±1000 ppm | almost certainly 29.97 against 30.000 |
+| drift near ±1000 ppm | almost certainly 29.97 conformed or labelled as 30.000 |
 | no lock | the recordings share no audible content, or one is silent |
 
 It correlates **onset envelopes**, not waveforms — so it works between completely different

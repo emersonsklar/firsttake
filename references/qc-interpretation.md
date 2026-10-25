@@ -19,7 +19,8 @@ scripts/shootcheck.py CAM_A.mov CAM_B.mp4 --role prores --role wide \
 
 The cross-camera section needs two files and catches **frame-rate mismatch between
 angles**, which is the single most expensive error in post. 29.97 and 30.000 are both
-called "30p" and drift about one frame every 33 seconds when mixed.
+called "30p", and once one is conformed or mislabelled as the other they drift about one
+frame every 33 seconds.
 
 Check the role and profile guesses echoed in the header. A wrong role applies the
 wrong chroma and bitrate expectations.

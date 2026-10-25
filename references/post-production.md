@@ -17,9 +17,18 @@ reads as fine until the person quoted notices.
 Consumer bodies rarely share a clock. The usual answer is a clap at the top of every
 take, and you should still do that — it is free and it survives everything. But a clap
 gives you **one** point in time, and the expensive failure is not offset, it is
-**drift**: 29.97 and 30.000 are both called "30p" and pull apart about one frame every
-33 seconds, so over a 40-minute interview the angles end up roughly 70 frames apart and
-no single sync point fixes it.
+**drift**. Mixed rates alone are not it: when each file is labelled with the rate it
+really carries, the NLE plays it at that rate and repeats or drops a frame to fit the
+timeline. Drift is what the NLE cannot see:
+
+- a clip fitted to the timeline frame for frame — Interpret Footage, a changed clip frame
+  rate, or a container that says 30.000 over 29.97 footage. That slides about one frame
+  every 33 seconds, roughly 70 frames over a 40-minute interview;
+- independent clocks off nominal by tens of ppm, which every file hides by claiming the
+  nominal rate — a frame or two over a long take;
+- variable frame rate from phones and some action cams.
+
+No single sync point fixes any of them.
 
 ```bash
 python3 scripts/sync_cameras.py NINJA_ref.mov DJI_0001.mp4 DJI_0002.mp4
@@ -37,7 +46,7 @@ the drift measurement**. Read it like this:
 |---|---|
 | spread under ~50 ms across a long span | one constant offset; a single sync point holds |
 | spread growing with probe position | genuine drift; check both cameras' frame rates |
-| drift near ±1000 ppm | almost certainly 29.97 against 30.000 |
+| drift near ±1000 ppm | almost certainly 29.97 conformed or labelled as 30.000 |
 | no lock | the two recordings share no audible content, or one is silent |
 
 Measured example from a real two-camera interview: a 31-minute A-camera and two

@@ -36,7 +36,7 @@ room disagree about spectrum and agree about *when things start*. It probes at u
 |---|---|
 | spread under ~50 ms across a long span | one constant offset; a single sync point holds |
 | spread growing with probe position | genuine drift; check both cameras' frame rates |
-| drift near ±1000 ppm | almost certainly 29.97 against 30.000 |
+| drift near ±1000 ppm | almost certainly 29.97 conformed or labelled as 30.000 |
 | no lock | the recordings share no audible content, or one is silent |
 
 ✅ Measured on a real two-camera interview: a 31-minute A-camera and two consecutive B-camera files

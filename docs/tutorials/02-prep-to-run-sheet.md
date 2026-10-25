@@ -45,7 +45,7 @@ Each of these has burned someone. Record the number, the date, and `CONFIRMED`.
       4K/30p all-intra format measured **300 Mbps (~48 min per 128 GB)**, not the 240 assumed.
       ProRes 422 HQ at 4K30 is **6.2 GB/min** → 1 TB ≈ 2.7 h.
 - [ ] **The frame rate the file really carries.** `ffprobe` it. A menu reading "30" usually writes
-      **29.97**, and mixing 29.97 with 30.000 drifts about **one frame every 33 s**.
+      **29.97**, and 29.97 conformed or labelled as 30.000 drifts about **one frame every 33 s**.
 - [ ] **Can the audio limiter be disabled?** If not, the camera track is sync-and-fallback only.
 - [ ] **Overheating** — run it for the length of the real session at the real settings. One compact
       body survived **40.9 min** at 4K30 log with no thermal cut; that is a measurement, not a
