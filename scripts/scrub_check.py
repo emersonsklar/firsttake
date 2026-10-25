@@ -58,13 +58,12 @@ SECRET_RULES: list[tuple[str, str]] = [
     (r"(?i)\bcookie\s*[:=]\s*['\"][^'\"]{20,}['\"]", "hardcoded cookie"),
 ]
 
-# Things that identify an employer's internal estate. Not secret individually, but
-# collectively they map an internal network and have no business in a public-ish repo.
+# Things that identify an organisation's internal estate. Not secret individually, but
+# collectively they map an internal network and have no business in a public repo. Add your
+# own organisation's internal domains to the private denylist (see the docstring).
 INTERNAL_RULES: list[tuple[str, str]] = [
     (r"\b[\w.-]+\.corp\.[\w.-]+\b", "internal corp hostname"),
-    (r"\b[\w.-]+\.a2z\.com\b", "internal hostname"),
-    (r"\b[\w.-]+\.aws\.dev\b", "internal hostname"),
-    (r"\b[\w.-]+\.amazon\.dev\b", "internal hostname"),
+    (r"\b[\w.-]+\.(?:local|lan|intranet|internal|home\.arpa)\b", "internal hostname"),
     (r"\bhttps?://[\w.-]*\.internal[\w.-]*/", "internal URL"),
     (r"\b\d{12}\b", "12-digit number — could be a cloud account id"),
     (r"[\w.+-]+@(?!example\.(com|org)\b)[\w-]+\.[\w.]+", "email address"),
@@ -124,10 +123,8 @@ ALLOW_VALUES = [
                      "the application, not an account id. It is asserted against the running "
                      "app in premiere_bridge/probe rather than trusted, so it has to appear "
                      "in the source."),
-    ("support@sklarstad.com", "the licensor's published support address, not a client or a "
-                            "person's private inbox. license_check.py prints it in every refusal "
-                            "so a buyer always knows where to go; it is on the storefront and in "
-                            "the EULA too."),
+    ("support@sklarstad.com", "the project's published support address, not a client or a "
+                            "person's private inbox. It is in the README and on sklarstad.com."),
     ("git@github.com", "the SSH URL user in `git@github.com:owner/repo.git`, not an email "
                        "address — it is nobody's inbox and identifies no person. The same string "
                        "appears in every SSH clone URL on the platform, and code that tries an "

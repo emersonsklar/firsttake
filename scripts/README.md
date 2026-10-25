@@ -2,12 +2,6 @@
 
 Standalone. Plain Python and ffmpeg — every one takes `--help`, most take `--selftest`, and none needs a model, an API key or a network. An assistant makes them easier to drive; it is not required to run any of them.
 
-The post tools (from `sync_cameras.py` down, except `scrub_check.py`) need an active license —
-see `license_check.py`. Offload, QC, fixtures, day sheets and the on-set LUT never do, every
-`--selftest` is exempt, and `nle_handover.py --verify` is free so a receiver never needs one.
-Friends and collaborators with read access to this private repo need nothing: the first post
-tool they run confirms that access with GitHub and records a friend license.
-
 | | |
 |---|---|
 | `shootcheck.py` | technical QC for footage and audio |
@@ -31,7 +25,6 @@ tool they run confirms that access with GitHub and records a friend license.
 | `scrub_check.py` | refuse to publish credentials or client-identifying material |
 | `doctor.py` | is this computer ready? plain-English checklist; `--fix` installs what's missing (asks first) |
 | `first_run.py` | one-minute tour on practice footage: offload, verify, catch a planted fault, QC |
-| `license_check.py` | activate a license, start a project, and the gate the post tools call — **never** blocks offload or QC |
 
 ## Run the harnesses after any edit
 
@@ -57,7 +50,6 @@ python3 premiere_program.py --selftest
 python3 verify_premiere_backend.py --selftest
 python3 build_day_sheets.py --selftest
 python3 scrub_check.py --selftest
-python3 license_check.py --selftest
 python3 doctor.py --selftest
 python3 first_run.py --selftest
 ```

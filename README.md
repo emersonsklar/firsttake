@@ -1,5 +1,9 @@
 <div align="center">
 
+# FirstTake
+
+<sub>by <a href="https://sklarstad.com">Sklarstad</a> · free and open source (Apache 2.0) · the skill's id is <code>film-shoot</code></sub>
+
 <img src="docs/hero.png" alt="film-shoot — from an empty room to a delivered master" width="100%">
 
 **A Claude Code skill for the shoot you cannot ask to do again.**
@@ -252,7 +256,7 @@ what's missing once you've agreed to each item, and finishes with a one-minute p
 **By hand:**
 
 ```bash
-git clone <THIS_REPO> ~/.claude/skills/film-shoot
+git clone https://github.com/emersonsklar/firsttake ~/.claude/skills/film-shoot
 cd ~/.claude/skills/film-shoot
 python3 -m pip install --user -r requirements.txt     # Windows: py -3.12 -m pip ...
 python3 scripts/doctor.py          # what's ready, what isn't, and how to fix it
@@ -306,6 +310,21 @@ Useful on their own. Plain Python and ffmpeg — `--help` and `--selftest` on ev
 Plus `build_subtitles.py`, `speed_ramp.py`, `make_proxies.py`, `measure_white_balance.py`,
 `conform_graphic.py`, `make_log_view_lut.py`, `fit_clip_trims.py`, `build_day_sheets.py` and a
 fixture-based self-test suite.
+
+---
+
+## Free, open source, and yours to improve
+
+FirstTake is **free** under the [Apache License 2.0](LICENSE): use it for personal or client work,
+change it, ship it inside your own tools. If you redistribute it or something built from it, keep
+the [NOTICE](NOTICE) and the copyright lines, mark what you changed, and credit **FirstTake by
+Sklarstad LLC**.
+
+**Contributions are very welcome** — especially quiet failures from real shoots, gear it doesn't
+handle yet, and fixes. See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+**If it saved a shoot,** you can [chip in whatever you like](https://sklar.gumroad.com/l/support-firsttake).
+It's entirely optional and keeps the work going. Questions: [support@sklarstad.com](mailto:support@sklarstad.com)
 
 ---
 

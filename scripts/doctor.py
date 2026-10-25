@@ -342,27 +342,6 @@ def check_skill():
                  fix=install_skill, fix_label=f"copy this folder to {dest}")
 
 
-def check_license():
-    try:
-        sys.path.insert(0, str(HERE))
-        import license_check
-        lic, state = license_check.read_license()
-    except Exception as e:                                    # noqa: BLE001
-        return Check("License", WARN, f"Couldn't read the license module ({type(e).__name__})")
-    if state == "broken":
-        return Check("License", WARN, "The license record doesn't match this computer",
-                     todo=f"{python_cmd()} license_check.py activate <your key>")
-    if lic:
-        return Check("License", OK, "Active: " + str(lic.get("tier")))
-    if (ROOT / ".git").exists():
-        return Check("License", INFO, "Not activated yet — friends with GitHub access are licensed "
-                                      "automatically the first time a post tool runs")
-    return Check("License", INFO, "Not activated yet",
-                 meaning="Shoot prep, card offload and footage QC work without a license. The post "
-                         "tools (sync, grade, mix, captions, timeline) need one.",
-                 todo=f"{python_cmd()} license_check.py activate <the key from your receipt email>")
-
-
 def _first_existing(paths):
     for p in paths:
         if Path(p).exists():
@@ -407,7 +386,7 @@ def check_editors():
 
 def all_checks():
     checks = [check_python(), check_utf8(), check_packages(), check_ffmpeg(), check_skill(),
-              check_license(), check_editors()]
+              check_editors()]
     return [c for c in checks if c is not None]
 
 

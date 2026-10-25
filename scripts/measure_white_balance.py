@@ -335,7 +335,4 @@ def main(argv=None) -> int:
 
 
 if __name__ == "__main__":
-    # Post tool: needs an active license (see license_check.py). --selftest is exempt.
-    from license_check import gate
-    gate(__file__)
     raise SystemExit(main())

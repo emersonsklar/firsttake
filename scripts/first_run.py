@@ -15,7 +15,7 @@ What it does, in order, on clips it makes itself (nothing of yours is read or ch
   3. damages one byte of one backup on purpose, and shows the re-check catching it
   4. runs footage QC on the clips and reports what it found, in plain words
 
-Only the tools that need no license are used, so it works before activation. It exists so the
+It exists so the
 first time someone sees a verified offload or a QC report is not on a real card at a real shoot.
 """
 

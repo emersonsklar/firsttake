@@ -1,9 +1,14 @@
-film-shoot
-Copyright (c) 2026 Emerson Sklar. All rights reserved.
+FirstTake (film-shoot)
+Copyright 2026 Sklarstad LLC
+https://sklarstad.com/firsttake/
 
-This software and associated files are proprietary. No license, express or
-implied, is granted for their use, reproduction, modification, distribution, or
-the creation of derivative works, in whole or in part, without prior written
-permission from the copyright holder. See LICENSE.
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
 
-Developed independently, on personal time and personal equipment.
+If you redistribute this work or a derivative of it, the Apache License requires
+you to keep this NOTICE file (or its text) with it, keep the copyright and
+attribution notices in the source, and mark any files you changed. Please also
+credit "FirstTake by Sklarstad LLC" with a link to
+https://github.com/emersonsklar/firsttake where you describe your project.
+
+Built by working film professionals. Developed independently, on personal time
+and personal equipment.
