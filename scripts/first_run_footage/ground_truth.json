@@ -1,0 +1,14 @@
+{
+  "b_offset_s": 1.37,
+  "a": {
+    "file": "A_wide.mov",
+    "start": 0.0,
+    "dur": 16.0
+  },
+  "b": {
+    "file": "B_tight.mov",
+    "start": 1.37,
+    "dur": 15.704
+  },
+  "note": "camera B rolled b_offset_s after camera A; reference_time = B_time + b_offset_s"
+}
