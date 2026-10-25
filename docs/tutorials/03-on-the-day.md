@@ -38,7 +38,7 @@ afterwards.
 
 | Check | The failure it prevents |
 |---|---|
-| **Both cameras write the same frame rate** — read it off the file, not the menu | 29.97 against 30.000 drifts ~1 frame every 33 s; over 40 minutes the angles end up ~70 frames apart and no single sync point fixes it |
+| **Both cameras write the same frame rate** — read it off the file, not the menu | 29.97 conformed or labelled as 30.000 drifts ~1 frame every 33 s; over 40 minutes the angles end up ~70 frames apart and no single sync point fixes it |
 | **The wireless receiver is in SPLIT, not merged** — two meters, not one | Merged mode sums two speakers onto one track and **post cannot separate them.** Catch it before the interview, not after |
 | **Log is actually engaged, and HDMI is still at full resolution** | One body forces HDMI to 1080p when log is enabled via its dedicated menu |
 | **The limiter is where you decided it should be** | If it cannot be defeated, the camera track is sync-and-fallback only |
