@@ -89,6 +89,15 @@ import nle_ir                                                          # noqa: E
 
 BACKEND = "ffmpeg"
 
+# 🔴 ONE set of colour tags on every segment and filler. METADATA ONLY — no pixel is touched, so the
+# "no colour in the assembler" rule above stands. Without it a tagged camera file arriving after an
+# untagged filler changes the stream's properties mid-track, ffmpeg rebuilds the filter graph, and a
+# multi-input overlay loses sync: the top track vanished and the base froze, with the total exact.
+# Measured by `_check_mixed_tags`. bt709 / tv range is what every master here is delivered as.
+UNIFORM_TAGS = "setparams=range=tv:color_primaries=bt709:color_trc=bt709:colorspace=bt709"
+
+STILL_EXT = {".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp", ".webp"}
+
 # Lossless-enough intermediates that concat can stream-copy. ProRes rather than ffv1 because both
 # platforms' ffmpeg builds carry prores_ks, and 4444 gives the alpha that overlay tracks need.
 PRORES = ["-c:v", "prores_ks", "-profile:v", "3", "-pix_fmt", "yuv422p10le"]
@@ -246,8 +255,14 @@ def fade_filter(node: dict, alpha: bool) -> str:
     if fade.get("in"):
         parts.append(f"fade=t=in:start_frame=0:nb_frames={int(fade['in']['frames'])}{a}")
     if fade.get("out"):
+        # 🔴 `len - 1 - n`, NOT `len - n`. ffmpeg's ramp is full at start_frame and reaches zero at
+        # start_frame + nb_frames, so starting at `len - n` reaches zero one frame AFTER the clip —
+        # the last frame never fades out. Premiere's proven keyframes put 100% at last - n and 0%
+        # ON the last frame; this matches them. The one-frame disagreement survived every check
+        # here until the CapCut probe measured both backends' renders frame by frame against one
+        # expected ramp.
         n = int(fade["out"]["frames"])
-        parts.append(f"fade=t=out:start_frame={int(node['len']) - n}:nb_frames={n}{a}")
+        parts.append(f"fade=t=out:start_frame={int(node['len']) - 1 - n}:nb_frames={n}{a}")
     return ",".join(parts)
 
 
@@ -296,11 +311,16 @@ class Assembler:
             chain.append(f"scale={int(tw)}:{int(th)}:flags=lanczos,setsar=1")
         if alpha:
             chain.append("format=yuva444p10le")
+        chain.append(UNIFORM_TAGS)
         f = fade_filter(node, alpha)
         if f:
             chain.append(f)
 
-        run([_tool("ffmpeg"), "-nostdin", "-v", "error", "-y", "-i", src,
+        # A STILL image is one frame. Without `-loop 1` a 120-frame title from a PNG comes out as
+        # 1 frame — caught by the assertion below, which is the only reason it was ever noticed.
+        loop = ["-loop", "1", "-framerate", "%d/%d" % (int(self.fps[0]), int(self.fps[1]))] \
+            if os.path.splitext(src)[1].lower() in STILL_EXT else []
+        run([_tool("ffmpeg"), "-nostdin", "-v", "error", "-y", *loop, "-i", src,
              "-vf", ",".join(chain), "-an",
              *(PRORES_ALPHA if alpha else PRORES), *rate_args(self.fps),
              "-fps_mode", "cfr", "-frames:v", str(int(node["len"])), out],
@@ -329,6 +349,7 @@ class Assembler:
         # "at" sign, which scrub_check reads as an email address — and the denylist should keep its
         # teeth rather than gain an exemption.
         chain = ("format=yuva444p10le,colorchannelmixer=aa=0" if alpha else "format=yuv422p10le")
+        chain += "," + UNIFORM_TAGS
         run([_tool("ffmpeg"), "-nostdin", "-v", "error", "-y",
              "-f", "lavfi", "-i",
              f"color=c=0x000000:s={int(tw)}x{int(th)}:r={int(self.fps[0])}/{int(self.fps[1])}",
@@ -541,8 +562,8 @@ class Assembler:
                                 f"{self.total}. 'Finished' is not 'correct'.")
         if (got["width"], got["height"]) != (want_w, want_h):
             raise AssembleError(f"the master is {got['width']}x{got['height']}, the plan says "
-                                f"{want_w}x{want_h}. A vertical programme delivered landscape has "
-                                f"every frame count right.")
+                                f"{want_w}x{want_h}. " + _raster_why(got["width"], got["height"],
+                                                                     want_w, want_h))
         want_rate = f"{int(self.fps[0])}/{int(self.fps[1])}"
         if got["rate"] not in (want_rate, _reduced(self.fps)):
             raise AssembleError(f"the master reports {got['rate']}, the plan says {want_rate}. "
@@ -552,6 +573,19 @@ class Assembler:
         if got["duration"] and abs(got["duration"] - want_secs) > 0.5:
             raise AssembleError(f"the master is {got['duration']:.3f}s long and the plan is "
                                 f"{want_secs:.3f}s, which the frame count did not catch.")
+
+
+def _raster_why(gw: int, gh: int, ww: int, wh: int) -> str:
+    """Say WHICH raster fault it is. A message that calls a 4K export of a vertical programme
+    'landscape' sends someone to fix the wrong setting."""
+    if (gw > gh) != (ww > wh) and gw != gh and ww != wh:
+        return ("It is the wrong ORIENTATION — a vertical programme delivered landscape, or the "
+                "reverse — and it has every frame count right.")
+    if gw * wh == gh * ww:
+        return ("Same shape, %s: the export resolution is set to something other than the plan's "
+                "(a 4K default, say). Re-export at %dx%d." % (
+                    "%.2gx the size" % (gw / float(ww)), ww, wh))
+    return ("A different SHAPE: something has been cropped, padded or letterboxed on the way out.")
 
 
 def _reduced(fps) -> str:
@@ -753,7 +787,8 @@ def _check_overlay_fade(media: dict, work: str) -> list[str]:
                 {"kind": "clip", "media": "c0", "rec": 0, "len": 40, "src_in": 0}]},
             {"id": "V2", "kind": "video", "index": 2, "nodes": [
                 {"kind": "clip", "media": "c2", "rec": 0, "len": 40, "src_in": 0,
-                 "fade": {"in": {"frames": 20, "shape": "linear"}}}]},
+                 "fade": {"in": {"frames": 20, "shape": "linear"},
+                          "out": {"frames": 10, "shape": "linear"}}}]},
         ],
     }
     out = os.path.join(work, "overlay.mkv")
@@ -770,6 +805,15 @@ def _check_overlay_fade(media: dict, work: str) -> list[str]:
     if abs(vals[0] - base0) > 2.0:
         problems.append(f"overlay: frame 0 should be the base alone ({base0:.1f}) and reads "
                         f"{vals[0]:.1f} — the fade did not start at zero alpha")
+    # The fade out must be COMPLETE on the clip's last frame — the base alone — and still full at
+    # last - n. Off by one, the last frame keeps a sliver of overlay and nothing else looks wrong.
+    if abs(vals[39] - _self_luma(0, 39)) > 2.0:
+        problems.append(f"overlay: frame 39, the last, should be the base alone "
+                        f"({_self_luma(0, 39):.1f}) and reads {vals[39]:.1f} — the fade out ends "
+                        f"after the clip does")
+    if abs(vals[29] - _self_luma(2, 29)) > 3.0:
+        problems.append(f"overlay: frame 29 (last - 10) should still be the overlay alone "
+                        f"({_self_luma(2, 29):.1f}) and reads {vals[29]:.1f}")
     if abs(vals[25] - _self_luma(2, 25)) > 3.0:
         problems.append(f"overlay: frame 25 should be the overlay alone "
                         f"({_self_luma(2, 25):.1f}) and reads {vals[25]:.1f}")
@@ -834,6 +878,53 @@ def _check_concat_boundary(media: dict, work: str) -> list[str]:
     return problems
 
 
+def _check_mixed_tags(media: dict, work: str) -> list[str]:
+    """Three video tracks, and a COLOUR-TAGGED clip arriving after an untagged gap on the middle one.
+
+    🔴 This is the bug the CapCut probe found here. ffmpeg REBUILDS a filter graph when a stream's
+    colour properties change mid-stream, and inside a multi-input `overlay` that rebuild loses sync:
+    from the boundary on, the top track vanished and the base froze or skipped a frame — different
+    frames on different runs — with the total still exactly right. Every generated filler is
+    untagged and real camera files are tagged, so ordinary plans hit it. The cure is in
+    `UNIFORM_TAGS`; this check plants the boundary and measures every frame.
+    """
+    tagged = os.path.join(work, "src2_bt709.mov")
+    run([_tool("ffmpeg"), "-nostdin", "-v", "error", "-y", "-i", media["c2"],
+         "-vf", "setparams=range=tv:color_primaries=bt709:color_trc=bt709:colorspace=bt709",
+         "-c:v", "ffv1", tagged], "tagged selfcheck source")
+    plan = {
+        "name": "selfcheck-mixed-tags", "fps": SELF_FPS, "timeline_raster": [SELF_W, SELF_H],
+        "media": {"c0": media["c0"], "c1": media["c1"], "c2t": tagged},
+        "baked": [{"what": "nothing", "why": "synthetic; this checks a colour-tag boundary"}],
+        "render": _self_render(os.path.join(work, "mixed.mkv")),
+        "tracks": [
+            {"id": "V1", "kind": "video", "index": 1, "nodes": [
+                {"kind": "clip", "media": "c0", "rec": 0, "len": 50, "src_in": 0}]},
+            {"id": "V2", "kind": "video", "index": 2, "nodes": [
+                {"kind": "clip", "media": "c2t", "rec": 10, "len": 10, "src_in": 0}]},
+            {"id": "V3", "kind": "video", "index": 3, "nodes": [
+                {"kind": "clip", "media": "c1", "rec": 30, "len": 10, "src_in": 0}]},
+        ],
+    }
+    out = os.path.join(work, "mixed.mkv")
+    assemble(plan, out, work=os.path.join(work, "w5"), keep=True, allow_unverified=True,
+             verbose=False)
+    vals = luma_per_frame(out, 0, 49)
+    if len(vals) < 50:
+        return [f"mixed tags: measured {len(vals)} frames, expected 50"]
+    bad = []
+    for t, v in enumerate(vals):
+        want = (_self_luma(2, t - 10) if 10 <= t < 20 else
+                _self_luma(1, t - 30) if 30 <= t < 40 else _self_luma(0, t))
+        if abs(v - want) > 1.0:
+            bad.append(f"frame {t} should read {want:.1f} and reads {v:.1f}")
+    if bad:
+        return ["mixed tags: " + "; ".join(bad[:4]) + (f" (+{len(bad) - 4} more)" if len(bad) > 4
+                                                      else "")
+                + " — a colour-tag change mid-track broke the overlay stage"]
+    return []
+
+
 def selfcheck() -> int:
     """Generate media, assemble three plans, and measure the results."""
     print("assemble_ffmpeg selfcheck — builds real files and measures them\n")
@@ -845,7 +936,8 @@ def selfcheck() -> int:
         for label, fn in (("placement (gap, disabled clip, exact source frames)", _check_placement),
                           ("crop rectangle", _check_crop),
                           ("overlay track + alpha fade", _check_overlay_fade),
-                          ("concat boundary alignment", _check_concat_boundary)):
+                          ("concat boundary alignment", _check_concat_boundary),
+                          ("colour-tag boundary, three tracks", _check_mixed_tags)):
             print(f"  checking {label} ...", end=" ", flush=True)
             try:
                 found = fn(media, work)
@@ -915,13 +1007,21 @@ def selftest() -> int:
     except AssembleError as e:
         check("a fractional crop is refused", "whole pixels" in str(e))
 
+    # --- a raster fault names the right cause
+    check("a 2x export is the wrong SIZE, not landscape",
+          "Same shape" in _raster_why(2160, 3840, 1080, 1920), _raster_why(2160, 3840, 1080, 1920))
+    check("a turned export is the wrong ORIENTATION",
+          "ORIENTATION" in _raster_why(1920, 1080, 1080, 1920), _raster_why(1920, 1080, 1080, 1920))
+    check("a letterboxed export is a different SHAPE",
+          "SHAPE" in _raster_why(1080, 1350, 1080, 1920), _raster_why(1080, 1350, 1080, 1920))
+
     # --- fades: frames, both ends, and alpha only where there is something behind
     node = {"len": 90, "fade": {"in": {"frames": 12}, "out": {"frames": 18}}}
     base = fade_filter(node, alpha=False)
     over = fade_filter(node, alpha=True)
     check("a fade in starts at frame 0", "fade=t=in:start_frame=0:nb_frames=12" in base, base)
-    check("a fade out starts at len - frames",
-          "fade=t=out:start_frame=72:nb_frames=18" in base, base)
+    check("a fade out starts at len - 1 - frames, so it ends ON the last frame",
+          "fade=t=out:start_frame=71:nb_frames=18" in base, base)
     # 🔴 the units, asserted directly. `st`/`d` are SECONDS, and passing frame counts to them made a
     # 20-frame fade a 20-SECOND one — invisible in the render and invisible to a string check that
     # only looked for the number.
