@@ -358,18 +358,25 @@ def check_editors():
                                "Developer" / "Scripting" / "Modules" / "DaVinciResolveScript.py"])
         premiere = next(iter(sorted((Path(pf) / "Adobe").glob("Adobe Premiere Pro*"))), None) \
             if (Path(pf) / "Adobe").is_dir() else None
+        la = os.environ.get("LOCALAPPDATA", "")
+        capcut = next(iter(sorted(Path(la).glob("CapCut/Apps/*/CapCut.exe"))), None) if la else None
     elif IS_MAC:
         resolve = _first_existing(["/Applications/DaVinci Resolve/DaVinci Resolve.app"])
         api = _first_existing(["/Library/Application Support/Blackmagic Design/DaVinci Resolve/"
                                "Developer/Scripting/Modules/DaVinciResolveScript.py"])
         premiere = next(iter(sorted(Path("/Applications").glob("Adobe Premiere Pro*"))), None)
+        capcut = _first_existing(["/Applications/CapCut.app"])
     else:
-        resolve = api = premiere = None
+        resolve = api = premiere = capcut = None
     found = []
     if resolve:
         found.append("DaVinci Resolve" + (" (scripting module found)" if api else ""))
     if premiere:
         found.append(Path(premiere).name)
+    if capcut:
+        # Early access: CapCut has no API, so the backend writes its draft file. `capcut_draft.py
+        # --probe` says whether this version's drafts can be read back at all.
+        found.append("CapCut (early access)")
     if found:
         # ⚠️ "Found" is not "usable": the preference that lets an outside script connect to Resolve
         # is documented under STUDIO, so the free edition may not be drivable from a shell at all.
@@ -377,7 +384,7 @@ def check_editors():
         # only shows `meaning` for problems. It lives in references/nle-backends.md, and
         # `resolve_connect.py --check` answers it on the machine in question.
         return Check("Editing app", OK, " and ".join(found))
-    return Check("Editing app", INFO, "No DaVinci Resolve or Premiere Pro found",
+    return Check("Editing app", INFO, "No DaVinci Resolve, Premiere Pro or CapCut found",
                  meaning="Not needed. It buys you an EDITABLE TIMELINE at the end; without one, "
                          "`assemble_ffmpeg.py` builds the same plan into a full-quality master — "
                          "measured at 1.08 codes of 255 against a delivered programme. Everything "

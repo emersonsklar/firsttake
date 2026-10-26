@@ -206,9 +206,81 @@ CAPABILITIES = {
         # which is the better answer anyway, and the one both other backends are told to use.
         "speed":           False,
     },
+    # CapCut desktop — free, and the editor a lot of people finishing social cuts already have.
+    # `capcut_draft.py`. There is no scripting API: the backend WRITES THE DRAFT FILE
+    # (`draft_info.json`) into CapCut's projects folder, and CapCut opens it like any other draft.
+    #
+    # 🔴 THE FORMAT IS UNDOCUMENTED AND OWNED BY SOMEONE ELSE. Everything below was learned by
+    # reading what the app writes (and from the open-source CapCutAPI / pyJianYingDraft projects,
+    # which reverse-engineered it), not from a spec. So the resting state is UNVERIFIED, and an
+    # entry is promoted only after BOTH: the draft read back after CapCut saved it (what CapCut
+    # kept), AND CapCut's own export measured frame by frame (what it draws).
+    #
+    # CapCut 9.6.0 on macOS, 2026-10-25: `capcut_draft.py --make-probe`, opened, saved, exported at
+    # 1080x1920 30/1 and passed through `--check-export`. Every one of 120 frames carried its
+    # planted source frame to within 0.25 codes, after a fitted gain of 1.0000.
+    "capcut": {
+        # CONFIRMED at 30/1: placement and in-points exact on every frame, read back unchanged.
+        # Times are MICROSECONDS, TRUNCATED per boundary — CapCut's own convention, measured — so
+        # source and timeline spans may differ by 1 us at speed 1.0, as CapCut writes them itself.
+        # At WHOLE rates only: see `fractional_fps`.
+        "clip":            True,
+        # CONFIRMED: a 4-band source cropped to its second band (transform.x = +1.0, scale 4.0)
+        # showed that band and nothing of its neighbours, and the numbers read back to every digit.
+        # Scale is relative to CapCut FITTING the material to the canvas, which is what it does.
+        "crop":            True,
+        # CONFIRMED: opacity keyframes (KFTypeAlpha) at the Premiere backend's frames — full at
+        # 0+n_in and last-n_out, zero on the last frame — drew within 0.03 of the expected ramp on
+        # every frame, against the card's measured level. Over the base track only the black canvas
+        # is behind, so a base-track fade is a fade to black as in the other backends.
+        "fade_linear":     True,
+        # Keyframes carry a curve type, but only "Line" has been seen written and read; an ease
+        # whose curve nobody has measured would be a linear fade wearing an ease's name.
+        "fade_shaped":     False,
+        # The IR's keyframe params are Premiere's (Scale in percent). Mapping them to CapCut's
+        # KFType* properties is not written, and a ramp quietly flattened is the failure here.
+        "keyframes":       False,
+        # CapCut's transitions are store effects addressed by resource IDs that must already be
+        # downloaded on the machine. Not portable; render it into the media or cut hard.
+        "transition":      False,
+        # CapCut has filters and an adjust panel, and no way to attach a CDL or a cube from the
+        # draft that anyone has verified. Same discipline as Premiere and ffmpeg: bake it.
+        "cdl":             False,
+        "lut":             False,
+        # CONFIRMED: `visible: false` drew black for all 20 frames of the disabled clip.
+        "clip_disable":    True,
+        # CONFIRMED for PNG stills: an opaque RGBA PNG strip drew at exactly luma 235, composited
+        # over the base on all 120 frames. 🔴 NOT for ProRes 4444: placed and faded exactly, but
+        # drawn at 191 where 235 was written — untagged and tagged bt709 alike — so
+        # `capcut_draft.media_checks` refuses a ProRes graphic by name. A colour shift on burned-in
+        # titles is the failure that looks finished.
+        "alpha_track":     True,
+        # A segment has a speed field. Not used: retime the media first, as everywhere else.
+        "speed":           False,
+        # 🔴 NO SCRIPTED EXPORT. CapCut renders only from its own Export dialog. Export by hand,
+        # then `capcut_draft.py --check-export` measures the file against the plan, because
+        # 'Complete' is not 'correct'.
+        "render":          False,
+        # 🔴 The bottom video track is CapCut's MAIN TRACK, and it is magnetic: its clips are
+        # forced to start at 0 and close up. A plan with a gap there would build, slide, and still
+        # tile. So it is refused, and the fix is a filler clip of black in the plan.
+        "main_track_gap":  False,
+        # 🔴 MEASURED 2026-10-25 on CapCut 9.6.0: a draft written at 30000/1001 opened, played, and
+        # was SAVED BACK AT 30.0, with every segment boundary re-snapped to the 30 fps grid — 150
+        # frames came back 151, in-points moved a frame, the audio picked up a 1-frame retime. The
+        # fade keyframes were not moved, so picture and opacity disagreed. Nothing warned. A
+        # 29.97 programme has to be conformed to 30 before it reaches CapCut, or not go there.
+        "fractional_fps":  False,
+    },
 }
 
 BACKENDS = tuple(CAPABILITIES)
+
+# Every other backend places a clip at any frame on any track, gaps included.
+# and keeps a fractional rate such as 30000/1001 exactly.
+for _caps in CAPABILITIES.values():
+    _caps.setdefault("main_track_gap", True)
+    _caps.setdefault("fractional_fps", True)
 
 # Transition types the IR understands, by intent rather than by vendor string. Each backend maps
 # these to whatever it calls them; a plan that names `AE.ADBE Cross Dissolve New` has baked one
@@ -269,6 +341,56 @@ def crop_to_premiere(crop, src, timeline):
         ],
         "px": px,
     }
+
+
+def crop_to_capcut(crop, src, timeline):
+    """CapCut's uniform Scale and Transform, as stored in a draft.
+
+    ⚠️ CapCut's scale is NOT relative to the source's native size, as Premiere's is. At scale 1.0 a
+    material is FITTED inside the canvas, so the scale it needs is PX divided by that fit factor.
+    Transform is in units of HALF the canvas, and its y axis points UP — the opposite of
+    Premiere's normalised Position, which points down.
+    """
+    cx, cy, cw, ch = crop
+    src_w, src_h = src
+    tl_w, tl_h = timeline
+    px = px_factor(cw, tl_w)
+    fit = min(float(tl_w) / float(src_w), float(tl_h) / float(src_h))
+    return {
+        "scale": px / fit,
+        "transform": [
+            (src_w / 2.0 - (cx + cw / 2.0)) * px / (tl_w / 2.0),
+            ((cy + ch / 2.0) - src_h / 2.0) * px / (tl_h / 2.0),
+        ],
+        "fit": fit,
+        "px": px,
+    }
+
+
+CROP_CONVERTERS = {"resolve": crop_to_resolve, "premiere": crop_to_premiere,
+                   "capcut": crop_to_capcut}
+
+
+def main_track(plan):
+    """The lowest-index video track — the one CapCut makes magnetic."""
+    vids = [t for t in plan.get("tracks", []) if t.get("kind") == "video"]
+    return min(vids, key=lambda t: t.get("index", 0)) if vids else None
+
+
+def main_track_gaps(plan):
+    """Where the bottom video track does not tile from frame 0: [(start, end), ...]."""
+    t = main_track(plan)
+    if t is None:
+        return []
+    gaps, cursor = [], 0
+    for node in sorted(t.get("nodes", []), key=lambda n: n.get("rec", 0)):
+        rec, ln = node.get("rec"), node.get("len")
+        if not isinstance(rec, int) or not isinstance(ln, int):
+            continue
+        if rec > cursor:
+            gaps.append((cursor, rec))
+        cursor = max(cursor, rec + ln)
+    return gaps
 
 
 def frames_to_seconds(frames, fps):
@@ -510,8 +632,20 @@ def capability_gate(plan, backend, allow_unverified=False):
                 check("lut", where, "Render the grade into the media and declare it in the "
                                     "plan's 'baked' list; then drop the grade from the node.")
 
+    fps = plan.get("fps")
+    if isinstance(fps, (list, tuple)) and len(fps) == 2 and all(isinstance(x, int) and x > 0
+                                                                for x in fps) and fps[0] % fps[1]:
+        check("fractional_fps", "plan fps %d/%d" % tuple(fps),
+              "It re-times the timeline to a whole rate and moves every cut. Conform the media "
+              "and the plan to %d fps first." % round(fps[0] / float(fps[1])))
+
+    for start, end in main_track_gaps(plan):
+        check("main_track_gap", "track %r frames %d..%d" % (main_track(plan).get("id"), start, end),
+              "Its main track is magnetic and would close the gap. Fill it with a clip of black.")
+
     if plan.get("render"):
-        check("render", "render")
+        check("render", "render", "Export it by hand in the application, then measure the file "
+                                  "against the plan (capcut_draft.py --check-export).")
 
     return errs
 
@@ -539,7 +673,7 @@ def explain(plan, backend):
             if crop is None or not tl:
                 continue
             src = node["src_raster"]
-            conv = crop_to_resolve if backend == "resolve" else crop_to_premiere
+            conv = CROP_CONVERTERS.get(backend, crop_to_premiere)
             out.append(("track %r node %d" % (t.get("id"), n), conv(crop, src, tl)))
     return out
 
@@ -724,6 +858,30 @@ def selftest():
         rhs_y = pp["position"][1] - 0.5
         if abs(lhs_y - rhs_y) > 1e-9:
             failures.append("crop %r: vertical mismatch %.12f vs %.12f" % (crop, lhs_y, rhs_y))
+        # CapCut is a THIRD parameterisation of the same crop — half-canvas units, y up, scale
+        # relative to a fit — so it must agree with both of the others, not just with one.
+        cc = crop_to_capcut(crop, [3840, 2160], [1080, 1920])
+        if abs(cc["transform"][0] / 2.0 - lhs) > 1e-9:
+            failures.append("crop %r: CapCut transform.x/2 = %.12f but Resolve pan/tl_w = %.12f"
+                            % (crop, cc["transform"][0] / 2.0, lhs))
+        if abs(cc["transform"][1] / 2.0 + rhs_y) > 1e-9:
+            failures.append("crop %r: CapCut transform.y/2 = %.12f but -Premiere dy = %.12f — "
+                            "CapCut's y points up" % (crop, cc["transform"][1] / 2.0, -rhs_y))
+        if abs(cc["scale"] * cc["fit"] - pp["scale_percent"] / 100.0) > 1e-9:
+            failures.append("crop %r: CapCut scale x fit = %.12f but Premiere scale = %.12f"
+                            % (crop, cc["scale"] * cc["fit"], pp["scale_percent"] / 100.0))
+
+    # A 16:9 source in a 9:16 canvas fits by WIDTH, where CapCut's scale equals Resolve's zoom. A
+    # 4:3 source in a 16:9 canvas fits by HEIGHT, where it does not — the case a width-only fit
+    # would get wrong while every vertical short still framed correctly.
+    cc = crop_to_capcut([130, 0, 1215, 2160], [3840, 2160], [1080, 1920])
+    if abs(cc["scale"] - r["zoom"]) > 1e-9:
+        failures.append("width-fit CapCut scale %r should equal Resolve zoom %r"
+                        % (cc["scale"], r["zoom"]))
+    cc = crop_to_capcut([0, 0, 1440, 1080], [1440, 1080], [1920, 1080])
+    if abs(cc["fit"] - 1.0) > 1e-9 or abs(cc["scale"] - 1920.0 / 1440.0) > 1e-9:
+        failures.append("height-fit CapCut: fit %r scale %r, expected 1.0 and 1.3333"
+                        % (cc["fit"], cc["scale"]))
 
     # a 2x zoom is the case where a missing scale factor still looks right
     two = crop_to_resolve([960, 540, 1920, 1080], [3840, 2160], [1920, 1080])
@@ -817,6 +975,32 @@ def selftest():
         pending = sorted(k for k, v in caps.items() if v == "UNVERIFIED")
         if pending:
             print("  note: %s still UNVERIFIED for %r" % (", ".join(pending), backend))
+
+    # A gap on the bottom video track is fine everywhere except CapCut, whose main track is
+    # magnetic. Both halves are asserted: a refusal that also fired for Resolve would be noise.
+    pl = _good_plan(); pl["tracks"][0]["nodes"][1]["rec"] = 230
+    pl["render"]["frames"] = 330; pl["tracks"][1]["nodes"][0]["len"] = 330
+    expect("capcut refuses a main-track gap", capability_gate(pl, "capcut", True), "magnetic")
+    expect("and names where it is", capability_gate(pl, "capcut", True), "frames 200..230")
+    for other in ("resolve", "premiere", "ffmpeg"):
+        if any("main_track_gap" in e for e in capability_gate(pl, other, True)):
+            failures.append("%s refused a main-track gap it can build" % other)
+    pl = _good_plan(); pl["tracks"][0]["nodes"][0]["rec"] = 10; pl["tracks"][0]["nodes"][1]["rec"] = 210
+    pl["tracks"][0]["nodes"][1]["len"] = 90
+    expect("capcut refuses a main track that does not start at 0",
+           capability_gate(pl, "capcut", True), "frames 0..10")
+    pl = _good_plan(); pl["tracks"][1]["nodes"][0].update(rec=50, len=200)
+    expect_clean("an UPPER-track gap is fine in capcut",
+                 [e for e in capability_gate(pl, "capcut", True)
+                  if "'render'" not in e and "fractional_fps" not in e])
+
+    expect("capcut refuses 29.97", capability_gate(_good_plan(), "capcut", True), "fractional_fps")
+    pl = _good_plan(); pl["fps"] = [30, 1]
+    if any("fractional_fps" in e for e in capability_gate(pl, "capcut", True)):
+        failures.append("capcut refused a whole rate as fractional")
+    for other in ("resolve", "premiere", "ffmpeg"):
+        if any("fractional_fps" in e for e in capability_gate(_good_plan(), other, True)):
+            failures.append("%s refused 29.97, which it keeps exactly" % other)
 
     expect("unknown backend", capability_gate(_good_plan(), "flame"), "unknown backend")
 

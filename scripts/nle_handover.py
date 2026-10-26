@@ -193,7 +193,8 @@ def render_notes(manifest, plan):
     L.append("## Build it")
     L.append("")
     L.append("```bash")
-    L.append("python3 nle_handover.py --verify . --backend <resolve|premiere>")
+    names = nle_ir.BACKENDS if nle_ir else ("resolve", "premiere")
+    L.append("python3 nle_handover.py --verify . --backend <%s>" % "|".join(names))
     L.append("```")
     L.append("")
     L.append("That checks every file is present and unchanged and that your application can build "
@@ -202,6 +203,8 @@ def render_notes(manifest, plan):
     L.append("```bash")
     L.append("python3 premiere_bridge.py --probe            # Premiere: do this first, once")
     L.append("python3 premiere_bridge.py --build plan.json")
+    L.append("python3 capcut_draft.py --probe               # CapCut: do this first, once")
+    L.append("python3 capcut_draft.py --build plan.json")
     L.append("```")
     L.append("")
 
@@ -419,11 +422,11 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--pack", metavar="PLAN.JSON")
     ap.add_argument("--to", metavar="DIR")
-    ap.add_argument("--from-backend", choices=("resolve", "premiere"))
+    ap.add_argument("--from-backend", choices=nle_ir.BACKENDS if nle_ir else None)
     ap.add_argument("--copy", action="store_true",
                     help="copy the referenced media into the package (only for another machine)")
     ap.add_argument("--verify", metavar="DIR")
-    ap.add_argument("--backend", choices=("resolve", "premiere"),
+    ap.add_argument("--backend", choices=nle_ir.BACKENDS if nle_ir else None,
                     help="the application YOU will build this in")
     ap.add_argument("--full", action="store_true", help="hash whole files, not size + ends")
     ap.add_argument("--allow-unverified", action="store_true")
