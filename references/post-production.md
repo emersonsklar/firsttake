@@ -156,6 +156,32 @@ speaker about 10 dB down — measured +8.5 to +10 dB in favour of whoever is act
 host that was a near-copy of the guest's, because it was crosstalk, and turned the host's −41 dB
 breath into "clean silence ends here". Take the **difference** between channels, always.
 
+4. **Reject an onset that falls INSIDE an aligned word.** All three gates above passed the release
+   of a /d/ *inside* "accor-d-ingly": a stop closure is ~50 ms of near-silence followed by a
+   voiced 12 dB rise from the right speaker, which is a word onset in every respect except that
+   it is not one. A social short opened on "-dingly" for three versions while every check passed,
+   because each check measured the cut **against the onset that had been found**. None asked
+   whether a word was still sounding at the cut.
+
+   So assert it at every **hard** edit point — wherever audio starts or stops across a source
+   discontinuity: no forced-aligned word may begin more than ~half a frame before the cut and end
+   more than ~half a frame after it. Lane changes inside continuous source are exempt; they cut no
+   audio. When the aligner is wrong (it does misplace words into silence), record the exemption
+   *with the measurement that proves it* — an exemption without one is a waiver.
+
+   ⚠️ **A trim can silently delete a word from the CAPTIONS while the audio is right.** When the
+   aligner swallows a filler it gives the next word the filler's start time; trim the filler and
+   that word now "starts" before the segment, so a caption builder that admits only words starting
+   inside it drops the word — the screen read *"think a great example"* over *"I think…"*. Correct
+   the word's time with its measurement, and assert that every overridden in-point's first caption
+   begins with the word it opens on.
+
+   ⚠️ And expect the corrected point to leave **no room for air**. Words run together: here
+   ~25 ms separated the two, so exactly one frame boundary fell in the gap, and the usual two
+   frames of lead-in would have started back inside the previous word. State a zero; don't fake
+   a budget. Measure the gap on the recording that actually ships — a second recorder of the same
+   speaker sat ~20 ms later, which is most of a 25 ms gap.
+
 ⚠️ **A CONSTANT IS NOT A MEASUREMENT.** An out-point finder returned exactly `+0.050 s` for two
 unrelated clips: that was its search cap, not the audio. **When two independent inputs give
 byte-identical answers, suspect the code before believing the result.**
@@ -528,6 +554,77 @@ Two counting rules that belong beside it:
 - **Butt a split file's successor at its predecessor's measured end**, not at a computed
   timestamp. See the sync section above: a camera that splits mid-take may lose nothing at
   the boundary, or may lose ~1.4 s — measure the files you have.
+
+### Replacing a line with a pickup recorded on something else
+
+The subject misspoke a product name and re-recorded the line on a phone. A phone and a body-worn
+radio mic into a camera are different instruments, and the difference is large — measured on one
+programme, the lav sat **~13 dB down below 250 Hz and ~12 dB down above 3 kHz** relative to the
+phone. What made the match hold, in the order it was built:
+
+- **Cover the picture first.** A pickup will not lip-sync to the take; a cutaway over the line
+  (here the product itself) removes the constraint entirely, and the dialogue under it can stay one
+  continuous pass.
+- **Patch the RAW mic channel, upstream of the mix.** Then the new line gets exactly the gain, dips
+  and limiting the old one did. Matching it to the finished mix instead puts it through the chain
+  twice.
+- **Match tone against the SAME SENTENCE in the original take**, not general speech — the words
+  drive a third-octave average more than you expect. Use other speech only as a cross-check;
+  averaging it in blurred a sharp transmitter roll-off and left +5.8 dB at 2.5 kHz.
+- **Close the loop.** One open-loop EQ pass missed by 5–8 dB above 6 kHz, because the measurement
+  gates on broadband level and cutting 13 dB of low end changes which frames pass the gate.
+  Re-measure, fold the residual back in — **damped and smoothed**, or neighbouring bands fight and
+  it oscillates. It converged to ≤ 1.9 dB in every band.
+- **Match the dynamics, not just the spectrum.** A radio link compresses and a phone does not: the
+  pickup's syllable-to-syllable range was 15.4 dB against the take's 13.4. Solve a gentle
+  compressor to the measured range (1.5:1 was enough); without it the quiet syllables dip audibly
+  further on the new line than anywhere else.
+- **Lay it over the subject's own room tone**, synthesised as noise shaped to the measured PSD of
+  the take's quiet stretches. A second or so of real tone looped five times can develop a pattern.
+- **Anchor the END, not the start.** The pickup ran 0.7 s longer. Aligning its last word with the
+  original's kept the beat into the next line and kept the music cue that was keyed to that last
+  word on the same frame; the longer line simply starts earlier. Check what that start collides
+  with — here, a mute on off-camera direction whose fade would have nicked the first sound.
+- **One switch for every reader of that channel.** The mix, any onset measurement and the subtitle
+  aligner must all read the patched audio, or the captions describe a different take from the one
+  playing. Make the switch also restore the original bit-for-bit when off.
+
+Then verify in the DELIVERED master, against the previous version: the line's loudness relative to
+the lines around it (+1.83 LU against +1.86 before), and a transcription of the render.
+
+#### Two build assumptions a cutaway breaks
+
+- **"The segment's first shot is the camera."** A builder derived the whole source-to-programme
+  mapping from the first shot of the dialogue segment. With a cutaway first, it read the source from
+  0.0 s — 54 frames early — and reported 19 problems about chimes, gaps and fades that were all one
+  bug. Derive such a mapping from every shot of that camera and assert they agree (to the per-shot
+  rounding you already tolerate).
+- **A derived structure file that is only written on request.** Re-running the planner printed the
+  new cut and left the cached structure stale; the next tool placed a graphic on a shot that no
+  longer existed, and its own assertions passed against the stale file. If a cache can be stale,
+  write it every time, or have readers refuse a cache older than its source.
+
+### A derived cut that slices the master must stay inside the master's range
+
+Slicing a short or a pull clip's dialogue out of the finished programme's master is the right
+call — the gain architecture and limiter were approved, and re-deriving them makes it sound like
+a different show. But it carries a trap the picture does not: **the master is in programme
+time, so a segment that runs past the end of its programme range plays whatever the programme
+cuts to next.** A social short's body ran 5 frames past its range. The picture, read straight
+from source, was right; the last frame of audio was **the host starting a different line, −8 dBFS
+peak**. It shipped in three versions, and a second short had the same fault by 3 frames.
+
+Stop the audio at the range end (a short fade, then silence), and make the verifier **derive** the
+overrun from the programme's own ranges rather than read the builder's account of itself.
+
+Two related moves this makes cheap:
+
+- **Muting a speaker is a stem swap, not a remix** — *if* the stems are post-limiter and proven to
+  sum to the master. Slice the other speaker's stem and you have the approved mix minus one
+  channel, with no second limiter in series.
+- ⚠️ **A second recording of the same mic is not a stand-in.** The camera's embedded channel of a
+  lav that also went to a separate recorder correlated with that recorder's stem at only r = 0.27,
+  and sat ~20 ms off it. Different path, different processing; don't splice one into the other.
 
 ### Splices: a butt join clicks, 20 ms of crossfade does not
 
