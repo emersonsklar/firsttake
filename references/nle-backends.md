@@ -150,7 +150,7 @@ expect to meet its edges:
 
 Resolve, by contrast, has driven every delivered programme on this project.
 
-## ⚠️ CapCut is EARLY ACCESS: proven at 30 fps on one machine and one version
+## ⚠️ CapCut is in BETA: proven at 30 fps on one machine and one version
 
 CapCut is free and is what a lot of people finishing a social cut already have open, so it is a
 fourth backend: `capcut_draft.py`. It has **no scripting API at all** — no module, no plugin

@@ -6,11 +6,12 @@
 
 <img src="docs/hero.png" alt="FirstTake — from an empty room to a delivered master" width="100%">
 
-**A Claude Code skill for the shoot you cannot ask to do again.**
+**From a pile of cards to a finished, verified edit — assembled by script.**
 
 Cameras that share no clock. Forty minutes with someone who will not sit down twice. Nobody on set
-whose only job is to watch the levels. At the other end: a master, a reviewer's transcript, social
-cuts and pull clips — assembled by script, with every number in it measured.
+whose only job is to watch the levels. FirstTake takes what came back and does the slow part of
+post for you: synced, transcribed, cut, matched, mixed, captioned and built as a real timeline in
+your editor — with every number in it measured, and every step checked before it says it is done.
 
 <sub>
 <code>python 3.12+</code> · <code>ffmpeg</code> · <code>numpy</code> &nbsp;•&nbsp;
@@ -21,11 +22,49 @@ every tool here runs standalone — no assistant, no API key
 
 ---
 
+## What it does for your edit
+
+Hand it the cards. You get back:
+
+- **Every camera and recorder on one timeline**, with no shared timecode — synced from the audio,
+  with the **drift** a clap cannot see measured and corrected.
+- **A transcript with every word attributed to its speaker**, and a review document in programme
+  time, so notes point at the right frame.
+- **The cut, assembled from the plan** — reframes, fades, speed ramps — and **built as a native
+  timeline in your editor**, then read back out of it and compared to the plan, clip by clip.
+- **Two cameras matched by measurement** — one corrector each, fitted from the footage rather than
+  dialled in by eye.
+- **A mix mastered to target**, levelled per speaker and checked per phrase, which is where a mix
+  that meters correctly still goes wrong.
+- **Captions timed by a forced aligner**, not by guesswork, and kept in step with every new render.
+- **The deliverables**: the master, vertical social cuts with burned-in captions, and pull clips,
+  each measured against the plan before it is called finished.
+
+It works on footage you already have. Nothing in post depends on having planned the shoot with it —
+planning just means fewer surprises to measure later.
+
+### In the editor you already use — or none
+
+The cut is described once, as a plan, and FirstTake builds it in whichever editor you have:
+
+| Editor | Status | What you get |
+|---|---|---|
+| **DaVinci Resolve** | ✅ recommended | Driven from a Python script; can script the grade too. Has delivered every programme here. |
+| **Premiere Pro** | ⚠️ early access | Driven through a panel inside the app. Colour and retime must be baked into the media first. |
+| **CapCut** | 🧪 **beta** | Free. Writes CapCut's own draft file, since CapCut has no scripting API. Proven on CapCut 9.6 at 30 fps; it refuses 29.97 and ProRes 4444 titles (both measured), and the export is a manual step that FirstTake then measures. |
+| **No editor at all** | ✅ | `assemble_ffmpeg.py` renders a full-quality master, not a proxy. You give up the editable timeline, not the quality. |
+
+If an editor cannot reproduce something in the plan exactly, the build **stops and names it**.
+It never quietly approximates. Details further down, in [Act 3](#act-3--finish).
+
+---
+
 <div align="center">
 <img src="docs/pipeline.png" alt="the workflow: prepare, capture, finish" width="100%">
 </div>
 
----
+The same method runs the whole way, from an empty room to a delivered master. Acts 1 and 2 are
+optional: they exist because the cheapest fault to fix in post is the one that never got recorded.
 
 ## Act 1 — Prepare
 
@@ -80,8 +119,8 @@ copy finished. Not until someone said thanks.
 
 ## Act 3 — Finish
 
-The largest part of the skill, and the part that keeps teaching. Six stages take a pile of cards
-that share no clock to a signed-off master:
+**The largest part of FirstTake, and the reason most people need it.** Six stages take a pile of
+cards that share no clock to a signed-off master:
 
 | Stage | What happens |
 |---|---|
@@ -95,10 +134,10 @@ that share no clock to a signed-off master:
 Reproducing someone else's graphics template runs through the whole of it: measure the reference
 rather than guess it — **size from ink height, family from width, weight from stroke thickness.**
 
-### Either NLE, and a cut that can change hands
+### Any editor, and a cut that can change hands
 
 <div align="center">
-<sub><b>DaVinci Resolve</b> &nbsp;·&nbsp; <b>Premiere Pro</b> <i>(early access)</i> &nbsp;·&nbsp; one plan, two backends</sub>
+<sub><b>DaVinci Resolve</b> &nbsp;·&nbsp; <b>Premiere Pro</b> <i>(early access)</i> &nbsp;·&nbsp; <b>CapCut</b> <i>(beta)</i> &nbsp;·&nbsp; <b>ffmpeg</b> &nbsp;·&nbsp; one plan, four backends</sub>
 </div>
 
 The timeline is described once, in an application-neutral plan, and a backend turns it into one
@@ -116,6 +155,15 @@ timeline.
 driven every delivered programme here, and it can script the grade. ⚠️ **Premiere support is early
 access**: it is driven by a panel inside the app, and two things are simply absent — colour and
 retime. It works, and it will show you its edges.
+
+🧪 **CapCut support is in beta.** CapCut has no scripting API at all, so FirstTake writes CapCut's
+own draft file and CapCut opens it like one of its own. It has been proven on **one version
+(CapCut 9.6) on one machine**: a probe whose every frame encodes its own frame number was built,
+saved by CapCut, read back, exported, and measured — placement, reframes, fades, disabled clips
+and PNG titles all landed exactly. Two things were measured going wrong and are refused by name:
+**29.97 fps** (CapCut silently re-times it to 30 and moves every cut) and **ProRes 4444 titles**
+(drawn about 19% too dark). Export from CapCut by hand, then `capcut_draft.py --check-export`
+measures the file. After a CapCut update, `--make-probe` re-runs the proof.
 
 💸 **And you do not have to buy anything.** `assemble_ffmpeg.py` is a third backend that needs no
 application at all — as does everything else here: offload and verification, QC, sync, transcription,
@@ -308,9 +356,9 @@ Requirements: **Python 3.12+**, a full `ffmpeg` with `ffprobe`, and `numpy`, `so
 Works on macOS and Windows. On Windows, `scripts/doctor.py --fix` also turns on Python's UTF-8
 mode, which the tools' output needs when an assistant runs them.
 
-**No NLE is required, and nothing here is paid.** DaVinci Resolve Studio or Premiere Pro buys you an
-editable timeline at the end; without either, the same plan assembles with ffmpeg to a full-quality
-master. See `references/nle-backends.md`, "Finishing with no NLE at all".
+**No NLE is required, and nothing here is paid.** DaVinci Resolve Studio, Premiere Pro or the free
+CapCut (beta) gives you an editable timeline at the end; without any of them, the same plan
+assembles with ffmpeg to a full-quality master. See `references/nle-backends.md`, "Finishing with no NLE at all".
 
 ---
 
@@ -324,7 +372,8 @@ Useful on their own. Plain Python and ffmpeg — `--help` and `--selftest` on ev
 | **`offload.py`** | Verified card offload to any number of destinations, with MHL/ASC MHL, JSON manifest and an HTML report. |
 | **`sync_cameras.py`** | Places recordings on a reference timeline with no shared timecode, and measures drift. |
 | **`diarize_by_channel.py`** | Per-word speaker attribution from a split-mode receiver. |
-| **`nle_ir.py`** | One timeline plan, two applications, and a gate that refuses to approximate. |
+| **`nle_ir.py`** | One timeline plan, four backends, and a gate that refuses to approximate. |
+| **`capcut_draft.py`** | 🧪 beta — build the plan as a CapCut draft, read back what CapCut kept, and measure its export. |
 | **`nle_handover.py`** | Pack a cut for whoever finishes it, and let them prove it arrived whole. |
 
 Plus `build_subtitles.py`, `speed_ramp.py`, `make_proxies.py`, `measure_white_balance.py`,

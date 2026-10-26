@@ -374,9 +374,9 @@ def check_editors():
     if premiere:
         found.append(Path(premiere).name)
     if capcut:
-        # Early access: CapCut has no API, so the backend writes its draft file. `capcut_draft.py
+        # Beta: CapCut has no API, so the backend writes its draft file. `capcut_draft.py
         # --probe` says whether this version's drafts can be read back at all.
-        found.append("CapCut (early access)")
+        found.append("CapCut (beta)")
     if found:
         # ⚠️ "Found" is not "usable": the preference that lets an outside script connect to Resolve
         # is documented under STUDIO, so the free edition may not be drivable from a shell at all.
