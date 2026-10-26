@@ -26,6 +26,13 @@ By contributing, you agree that your contribution is licensed under the Apache L
 the project is (section 5 of [LICENSE](LICENSE)). Sklarstad LLC remains the copyright holder of
 the project as a whole, and contributors keep the copyright on their own contributions.
 
+## Releasing (maintainers)
+
+🔴 **Bump `version` in `.claude-plugin/marketplace.json` in any PR that should reach installed
+copies.** `claude plugin update` compares that field, not the commits: 1.0.0 stayed 1.0.0 through
+two merged PRs, and every installed copy reported "already at the latest version" while missing
+both. Patch for fixes and docs, minor for a new tool or backend.
+
 ## Questions
 
 Open a GitHub issue or discussion, or email [support@sklarstad.com](mailto:support@sklarstad.com)
