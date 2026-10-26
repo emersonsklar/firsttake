@@ -82,6 +82,7 @@ ISO was two stops off the assumed value. Measured on the body beats printed.
 | The **DaVinci Resolve** dialect — its scripting API, Fusion animation, crops that survive proxy/original | `references/resolve-api.md` |
 | The **Premiere Pro** dialect ⚠️ *early access* — the UXP API, the transaction model, native keyframes | `references/premiere-uxp.md` |
 | **Where the Premiere backend actually stands**, what is proven, and the next step | `references/PREMIERE-STATUS.md` |
+| **CapCut** ⚠️ *early access, unproven in the app* — no API, so the backend writes its draft file; what it refuses and why | `references/nle-backends.md`, "CapCut" |
 | **Two cameras that don't match**, identifying a log format, grading to a reference episode, deriving framing, reproducing a supplied graphics template | `references/grade-match.md` |
 | Templates to copy per shoot | `references/templates/` |
 | The tools themselves | `scripts/README.md` |

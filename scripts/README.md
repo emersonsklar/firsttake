@@ -21,6 +21,7 @@ Standalone. Plain Python and ffmpeg — every one takes `--help`, most take `--s
 | `premiere_program.py` | emit a Premiere build as a declarative PROGRAM, so build logic lives in Python and the panel stops needing reloads |
 | `verify_premiere_backend.py` | prove on a real timeline what the Premiere backend can do, with synthetic media |
 | `premiere_bridge.py` | drive Premiere Pro from Python through the UXP panel in `premiere/uxp/` — **`--probe` first** |
+| `capcut_draft.py` | ⚠️ early access: write the plan as a CapCut draft, read back what CapCut kept, measure the manual export — **`--probe` first** |
 | `nle_handover.py` | pack a cut for someone using the other NLE, and let them verify it arrived whole |
 | `scrub_check.py` | refuse to publish credentials or client-identifying material |
 | `doctor.py` | is this computer ready? plain-English checklist; `--fix` installs what's missing (asks first) |
@@ -46,6 +47,7 @@ python3 make_export_preset.py --selftest
 python3 nle_ir.py --selftest
 python3 premiere_bridge.py --selftest
 python3 nle_handover.py --selftest
+python3 capcut_draft.py --selftest
 python3 premiere_program.py --selftest
 python3 verify_premiere_backend.py --selftest
 python3 build_day_sheets.py --selftest

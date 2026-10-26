@@ -150,6 +150,76 @@ expect to meet its edges:
 
 Resolve, by contrast, has driven every delivered programme on this project.
 
+## ⚠️ CapCut is EARLY ACCESS: proven at 30 fps on one machine and one version
+
+CapCut is free and is what a lot of people finishing a social cut already have open, so it is a
+fourth backend: `capcut_draft.py`. It has **no scripting API at all** — no module, no plugin
+runtime, no CLI — so the backend does not drive the application. It **writes the draft file**
+(`draft_info.json`) into CapCut's projects folder, and CapCut opens it like any draft of its own.
+The format is undocumented; it was learned from what CapCut writes and from the open-source
+CapCutAPI / pyJianYingDraft projects, whose code is not used.
+
+```bash
+python3 scripts/capcut_draft.py --probe                    # app, version, and what its drafts look like
+python3 scripts/capcut_draft.py --build plan.json
+# open it in CapCut, let it save, close it — then read back what CapCut KEPT:
+python3 scripts/capcut_draft.py --readback <name> --plan plan.json
+# export by hand from CapCut's Export dialog, then measure the file:
+python3 scripts/capcut_draft.py --check-export export.mp4 --plan plan.json
+python3 scripts/capcut_draft.py --make-probe ~/capcut-probe     # the capability probe, see below
+```
+
+**Where it stands — CapCut 9.6.0, macOS, 2026-10-25.** The probe below was built, opened, saved by
+CapCut, read back unchanged, exported at 1080×1920 30/1 and measured on every frame:
+
+| | CapCut | evidence |
+|---|---|---|
+| place a clip, in-points | ✅ | all 120 frames on their planted source frame, residual 0.25 codes |
+| crop / reframe | ✅ | the cropped band and none of its neighbours; numbers read back to every digit |
+| linear fade | ✅ | within 0.03 opacity of the Premiere backend's ramp on every frame |
+| disable one clip | ✅ | black for all 20 frames |
+| alpha graphics — **PNG** | ✅ | an opaque RGBA PNG strip drew at exactly 235 on all 120 frames |
+| alpha graphics — **ProRes 4444** | 🔴 refused | placed and faded exactly, but drew at luma **191 where 235 was written**, untagged and tagged bt709 alike |
+| 29.97, 23.976, 59.94 | 🔴 no | re-timed to a whole rate on save — see below |
+
+A capability is promoted only with **both** halves: the readback (what CapCut kept) and the
+measured export (what it draws). A readback of a draft CapCut has never saved reads back this
+tool's own file, and says so as a NOTE rather than a pass. If a CapCut build stores drafts
+encrypted — some CapCut and JianYing versions have — nothing can be read back and `--probe` says so.
+
+🔴 **CapCut does not keep 29.97 — measured on 9.6.0.** A draft written at 30000/1001 opened and
+played fine, and was saved back at **30.0 with every cut re-snapped to the 30 fps grid**: 150-frame
+clips came back 151, in-points moved a frame, the audio picked up a one-frame retime, and the fade
+keyframes were *not* moved, so opacity and picture disagreed. It looked right. Only `--readback`
+saw it. The gate therefore refuses a fractional rate (`fractional_fps`); conform to 30 first.
+
+**Proving it draws what the plan means.** A readback proves CapCut kept the numbers, not that it
+draws them as the IR intends. `--make-probe DIR` writes a 30 fps plan whose media encodes its own
+frame number as luma, with a crop that has to move the picture, a disabled clip and a fading alpha
+card. Build it, export it from CapCut, and `--check-export` asserts *source frame S is at timeline
+frame T* on every frame, after fitting out any range conversion. It measures the alpha card's
+opaque level separately from its ramp, so a colour shift is reported as colour and not as fifty
+frames of wrong timing — which is what it did before it knew to.
+
+What the format forces, and what the gate therefore refuses:
+
+- **Time is microseconds, truncated.** That is CapCut's own convention, measured: it saves frame 80
+  at 30 fps as 2666666. Each boundary comes from its absolute frame number so nothing drifts, and
+  source and timeline are converted independently, as CapCut does — so their durations can differ
+  by 1 µs at speed 1.0. That is not a retime; a speed other than 1, or a source that ends on the
+  wrong frame, is.
+- **The bottom video track is magnetic.** CapCut forces its clips to start at 0 and close up, so a
+  gap there is refused (`main_track_gap`). Put a clip of black in the plan instead.
+- **Picture clips are written silent.** The plan's audio is on its audio tracks; otherwise the
+  camera sound would play under the mix.
+- **Titles as PNG, not ProRes 4444.** The 4444 card is drawn about 19% too dark — every title's
+  colour wrong while its placement and fade are perfect, which is the failure that looks finished.
+  `--build` refuses a ProRes graphic by name. The probe keeps one, so re-running `--make-probe`
+  on a newer CapCut re-measures it.
+- **Refused by name:** CDL and LUT (bake the grade, as for Premiere), transitions (store effects
+  that must be downloaded on that machine), keyframes, shaped fades, retime, and the render —
+  CapCut exports only from its own dialog, which is why `--check-export` exists.
+
 ---
 
 ## The honest answer about "100% compatibility"
