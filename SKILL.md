@@ -1,6 +1,6 @@
 ---
 name: firsttake
-description: Use when planning, prepping, running, or debriefing a video shoot where the user is responsible for the recording — camera and audio settings, lighting placement, on-set checklists, footage QC, verified card offload and archiving, or a delivery spec for a post house. Also use for post-production on any footage, however it was shot — syncing angles that share no timecode, transcripts and speaker attribution, loudness and audio mastering, cutting, matching two cameras' colour or identifying a log format, and assembling an edit by script in DaVinci Resolve (recommended), Premiere Pro (early access) or CapCut (beta) — or with no NLE at all, since none of this needs paid software — including handing a cut to someone who uses the other one. Also use when the user says they have a shoot coming up, asks for a checklist or set diagram, wants test footage analysed, or wants to offload and verify cards. Works with any camera, recorder, mic and drive, and with any of those editors; it measures the user's own gear rather than assuming a kit.
+description: Use when planning, prepping, running, or debriefing a video shoot where the user is responsible for the recording — camera and audio settings, lighting placement, on-set checklists, footage QC, verified card offload and archiving, or a delivery spec for a post house. Also use for post-production on any footage, however it was shot — syncing angles that share no timecode, transcripts and speaker attribution, loudness and audio mastering, cutting, matching two cameras' colour or identifying a log format, and assembling an edit by script in DaVinci Resolve (recommended), Premiere Pro or CapCut (both early access) — or with no NLE at all, since none of this needs paid software — including handing a cut to someone who uses the other one. Also use when the user says they have a shoot coming up, asks for a checklist or set diagram, wants test footage analysed, or wants to offload and verify cards. Works with any camera, recorder, mic and drive, and with any of those editors; it measures the user's own gear rather than assuming a kit.
 ---
 
 # FirstTake
@@ -82,7 +82,7 @@ ISO was two stops off the assumed value. Measured on the body beats printed.
 | The **DaVinci Resolve** dialect — its scripting API, Fusion animation, crops that survive proxy/original | `references/resolve-api.md` |
 | The **Premiere Pro** dialect ⚠️ *early access* — the UXP API, the transaction model, native keyframes | `references/premiere-uxp.md` |
 | **Where the Premiere backend actually stands**, what is proven, and the next step | `references/PREMIERE-STATUS.md` |
-| **CapCut** ⚠️ *beta* — no API, so the backend writes its draft file; proven on 9.6 at 30 fps, and what it refuses and why | `references/nle-backends.md`, "CapCut" |
+| **CapCut** ⚠️ *early access* — no API, so the backend writes its draft file; proven on 9.6 at 30 fps, and what it refuses and why | `references/nle-backends.md`, "CapCut" |
 | **Two cameras that don't match**, identifying a log format, grading to a reference episode, deriving framing, reproducing a supplied graphics template | `references/grade-match.md` |
 | Templates to copy per shoot | `references/templates/` |
 | The tools themselves | `scripts/README.md` |

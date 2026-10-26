@@ -51,7 +51,7 @@ The cut is described once, as a plan, and FirstTake builds it in whichever edito
 |---|---|---|
 | **DaVinci Resolve** | ✅ recommended | Driven from a Python script; can script the grade too. Has delivered every programme here. |
 | **Premiere Pro** | ⚠️ early access | Driven through a panel inside the app. Colour and retime must be baked into the media first. |
-| **CapCut** | 🧪 **beta** | Free. Writes CapCut's own draft file, since CapCut has no scripting API. Proven on CapCut 9.6 at 30 fps; it refuses 29.97 and ProRes 4444 titles (both measured), and the export is a manual step that FirstTake then measures. |
+| **CapCut** | ⚠️ early access | Free. Writes CapCut's own draft file, since CapCut has no scripting API. Proven on CapCut 9.6 at 30 fps; it refuses 29.97 and ProRes 4444 titles (both measured), and the export is a manual step that FirstTake then measures. |
 | **No editor at all** | ✅ | `assemble_ffmpeg.py` renders a full-quality master, not a proxy. You give up the editable timeline, not the quality. |
 
 If an editor cannot reproduce something in the plan exactly, the build **stops and names it**.
@@ -137,7 +137,7 @@ rather than guess it — **size from ink height, family from width, weight from 
 ### Any editor, and a cut that can change hands
 
 <div align="center">
-<sub><b>DaVinci Resolve</b> &nbsp;·&nbsp; <b>Premiere Pro</b> <i>(early access)</i> &nbsp;·&nbsp; <b>CapCut</b> <i>(beta)</i> &nbsp;·&nbsp; <b>ffmpeg</b> &nbsp;·&nbsp; one plan, four backends</sub>
+<sub><b>DaVinci Resolve</b> &nbsp;·&nbsp; <b>Premiere Pro</b> <i>(early access)</i> &nbsp;·&nbsp; <b>CapCut</b> <i>(early access)</i> &nbsp;·&nbsp; <b>ffmpeg</b> &nbsp;·&nbsp; one plan, four backends</sub>
 </div>
 
 The timeline is described once, in an application-neutral plan, and a backend turns it into one
@@ -156,7 +156,7 @@ driven every delivered programme here, and it can script the grade. ⚠️ **Pre
 access**: it is driven by a panel inside the app, and two things are simply absent — colour and
 retime. It works, and it will show you its edges.
 
-🧪 **CapCut support is in beta.** CapCut has no scripting API at all, so FirstTake writes CapCut's
+⚠️ **CapCut support is early access.** CapCut has no scripting API at all, so FirstTake writes CapCut's
 own draft file and CapCut opens it like one of its own. It has been proven on **one version
 (CapCut 9.6) on one machine**: a probe whose every frame encodes its own frame number was built,
 saved by CapCut, read back, exported, and measured — placement, reframes, fades, disabled clips
@@ -357,7 +357,7 @@ Works on macOS and Windows. On Windows, `scripts/doctor.py --fix` also turns on 
 mode, which the tools' output needs when an assistant runs them.
 
 **No NLE is required, and nothing here is paid.** DaVinci Resolve Studio, Premiere Pro or the free
-CapCut (beta) gives you an editable timeline at the end; without any of them, the same plan
+CapCut (early access) gives you an editable timeline at the end; without any of them, the same plan
 assembles with ffmpeg to a full-quality master. See `references/nle-backends.md`, "Finishing with no NLE at all".
 
 ---
@@ -373,7 +373,7 @@ Useful on their own. Plain Python and ffmpeg — `--help` and `--selftest` on ev
 | **`sync_cameras.py`** | Places recordings on a reference timeline with no shared timecode, and measures drift. |
 | **`diarize_by_channel.py`** | Per-word speaker attribution from a split-mode receiver. |
 | **`nle_ir.py`** | One timeline plan, four backends, and a gate that refuses to approximate. |
-| **`capcut_draft.py`** | 🧪 beta — build the plan as a CapCut draft, read back what CapCut kept, and measure its export. |
+| **`capcut_draft.py`** | ⚠️ early access — build the plan as a CapCut draft, read back what CapCut kept, and measure its export. |
 | **`nle_handover.py`** | Pack a cut for whoever finishes it, and let them prove it arrived whole. |
 
 Plus `build_subtitles.py`, `speed_ramp.py`, `make_proxies.py`, `measure_white_balance.py`,
