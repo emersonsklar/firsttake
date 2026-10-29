@@ -28,8 +28,8 @@ the project as a whole, and contributors keep the copyright on their own contrib
 
 ## Releasing (maintainers)
 
-🔴 **Bump `version` in `.claude-plugin/marketplace.json` in any PR that should reach installed
-copies.** `claude plugin update` compares that field, not the commits: 1.0.0 stayed 1.0.0 through
+🔴 **Bump `version` in both `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json`
+(keep them equal) in any PR that should reach installed copies.** `claude plugin update` compares that field, not the commits: 1.0.0 stayed 1.0.0 through
 two merged PRs, and every installed copy reported "already at the latest version" while missing
 both. Patch for fixes and docs, minor for a new tool or backend.
 

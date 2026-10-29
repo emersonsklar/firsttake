@@ -449,7 +449,7 @@ iterating the static gain against a *measured render*, not by asking a filter to
 
 - **Per speaker only if you actually have per-speaker channels.** If the recording is one summed mix,
   split by **time** using the turn boundaries and measure each speaker's segments separately. Do not
-  trust `aselect` inside a single `loudnorm` pass — it silently measures the whole stream and returns
+  trust `aselect` inside a single `loudnorm` run — it silently measures the whole stream and returns
   identical numbers for every speaker.
 - **A per-turn trim is safe; a per-phrase one is not.** Level each speaking turn with a constant and
   change it only inside measured silence between turns. Nothing then moves while anyone is speaking.
