@@ -4,7 +4,7 @@
 
 <sub>by <a href="https://sklarstad.com">Sklarstad</a> · free and open source (Apache 2.0)</sub>
 
-<img src="docs/hero.png" alt="FirstTake — from an empty room to a delivered master" width="100%">
+![FirstTake — from an empty room to a delivered master](docs/hero.png)
 
 **From a pile of cards to a finished, verified edit — assembled by script.**
 
@@ -59,9 +59,7 @@ It never quietly approximates. Details further down, in [Act 3](#act-3--finish).
 
 ---
 
-<div align="center">
-<img src="docs/pipeline.png" alt="the workflow: prepare, capture, finish" width="100%">
-</div>
+![the workflow: prepare, capture, finish](docs/pipeline.png)
 
 The same method runs the whole way, from an empty room to a delivered master. Acts 1 and 2 are
 optional: they exist because the cheapest fault to fix in post is the one that never got recorded.
@@ -101,9 +99,7 @@ silently.
 
 ### Securing the media — a copy is not a backup until it has been read back
 
-<div align="center">
-<img src="docs/offload.png" alt="read the card once, hash while reading, then re-read every destination from disk" width="94%">
-</div>
+![read the card once, hash while reading, then re-read every destination from disk](docs/offload.png)
 
 `offload.py` reads the card **once**, hashes as it reads, then **re-reads every destination from
 disk** and compares. MHL 1.1, optional generation-chained ASC MHL, a JSON manifest, and a
@@ -194,9 +190,7 @@ refuse *before* you offer it a handover.
 
 ### Exhibit A — the clap that doesn't save you
 
-<div align="center">
-<img src="docs/drift.gif" alt="two clocks drifting apart by one frame every 33 seconds" width="88%">
-</div>
+![two clocks drifting apart by one frame every 33 seconds](docs/drift.gif)
 
 Clap at the top of the take. You should still do it — it is free and survives everything. But a clap
 gives you **one point in time**, and the expensive failure is not offset, it is **drift**. Mixed
@@ -232,9 +226,7 @@ start*.
 
 ### Exhibit B — a vertical cut is a budget, not a crop
 
-<div align="center">
-<img src="docs/reframe.gif" alt="a static 9:16 window while the subject sways, with the excursion budget measured" width="88%">
-</div>
+![a static 9:16 window while the subject sways, with the excursion budget measured](docs/reframe.gif)
 
 A seated subject's head swayed **588 px**; the union of head positions spanned **1051 px** of a
 **1215 px** window. No static window holds that with margin everywhere.
@@ -252,9 +244,7 @@ the subject's furthest lean entirely — the sparse answer would have clipped a 
 
 ### Exhibit C — on target, and still wrong
 
-<div align="center">
-<img src="docs/loudness.png" alt="per-turn levelling is tight while individual phrases sit 4 LU over" width="94%">
-</div>
+![per-turn levelling is tight while individual phrases sit 4 LU over](docs/loudness.png)
 
 Integrated loudness, true peak, LRA and per-turn levelling all correct — turn-to-turn spread
 **1.4 LU** — and one phrase still sat **+2.7 LU** over its speaker's median word. Twelve phrases sat
@@ -382,6 +372,28 @@ fixture-based self-test suite.
 
 ---
 
+## What it runs, installs and connects to
+
+Everything runs on your own computer. The tools make **no network requests**, send **no
+telemetry**, and never upload footage or anything about your shoot.
+
+- **Runs:** the Python scripts in `scripts/`, and `ffmpeg`/`ffprobe` on files you point it at.
+- **Installs, only after you agree to each item** (`scripts/doctor.py --fix`): the Python
+  packages in `requirements.txt` (numpy, soundfile, Pillow) from PyPI with `pip install --user`;
+  ffmpeg through winget (`Gyan.FFmpeg`) on Windows or Homebrew on macOS; and Python 3.12 the same
+  way if it's missing. On Windows it can also set `PYTHONUTF8=1` in your user environment.
+- **Connects to, only on this computer:** DaVinci Resolve Studio through Resolve's own scripting
+  module; Premiere Pro through a panel you install, exchanging job files in
+  `~/.firsttake/premiere-jobs`; CapCut by writing a draft folder CapCut opens.
+- **Writes:** offload copies, manifests and reports to the folders you choose; the practice run
+  to `Documents/firsttake-first-run`; `doctor.py --install-skill` copies this folder to
+  `~/.claude/skills/firsttake`, keeping any previous copy as a backup.
+- **Optional, your choice:** if you install `mlx-whisper` yourself, `diarize_by_channel.py
+  --transcribe` uses it, and that library downloads its speech model from Hugging Face on first
+  use.
+- **Bundles:** two short synthetic sample videos (`scripts/first_run_footage/`) for the practice
+  run. No real person or client footage; see that folder's README for how they were made.
+
 ## Free, open source, and yours to improve
 
 FirstTake is **free** under the [Apache License 2.0](LICENSE): use it for personal or client work,
@@ -407,11 +419,10 @@ the numbers, not by applying a rule from a book.
 
 <div align="center">
 
-<img src="docs/thumb-256.png" alt="FirstTake" width="128">
+![FirstTake](docs/thumb-256.png)
 
-<sub>Every image here is generated by <code>docs/make_assets.py</code> — plots of the measurements
-themselves. No stock art, no screenshots, no footage. The thumbnail set
-(<code>docs/thumb-{1024,512,256,128,64,32}.png</code>) is <b>drawn at each size rather than
-downscaled</b>: 21px mono type does not survive a 32× reduction, so below 256 the readouts come
+<sub>Every image here is generated by the asset script in docs/ — plots of the measurements
+themselves. No stock art, no screenshots, no footage. The thumbnail set is <b>drawn at each
+size rather than downscaled</b>: 21px mono type does not survive a 32× reduction, so below 256 the readouts come
 off, below 96 the wordmark does, and at 32 only the record light remains.</sub>
 </div>
