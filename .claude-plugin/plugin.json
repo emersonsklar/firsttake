@@ -1,0 +1,19 @@
+{
+  "name": "firsttake",
+  "displayName": "FirstTake",
+  "description": "Plan, shoot and finish video: verified card offload, footage QC, multi-camera sync with no shared timecode, and edit, grade, mix, captions and delivery. No editing software required.",
+  "version": "1.1.2",
+  "author": {
+    "name": "Sklarstad LLC",
+    "email": "support@sklarstad.com",
+    "url": "https://sklarstad.com/"
+  },
+  "homepage": "https://sklarstad.com/firsttake/",
+  "repository": "https://github.com/emersonsklar/firsttake",
+  "license": "Apache-2.0",
+  "keywords": ["video-production", "filmmaking", "offload", "qc", "ffmpeg", "davinci-resolve", "premiere-pro", "capcut"],
+  "icon": "./docs/thumb-512.png",
+  "documentationUrl": "https://github.com/emersonsklar/firsttake#readme",
+  "supportUrl": "https://github.com/emersonsklar/firsttake/issues",
+  "privacyPolicyUrl": "https://sklarstad.com/privacy/"
+}

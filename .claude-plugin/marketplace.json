@@ -10,7 +10,7 @@
       "name": "firsttake",
       "source": "./",
       "description": "Plan, shoot and finish video: verified card offload, footage QC, multi-camera sync with no shared timecode, and edit, grade, mix, captions and delivery. No editing software required.",
-      "version": "1.1.1",
+      "version": "1.1.2",
       "author": {
         "name": "Sklarstad LLC",
         "email": "support@sklarstad.com"
