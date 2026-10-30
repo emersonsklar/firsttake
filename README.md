@@ -22,6 +22,21 @@ every tool here runs standalone — no assistant, no API key
 
 ---
 
+## Get started
+
+In Claude Code:
+
+```
+/plugin marketplace add emersonsklar/firsttake
+/plugin install firsttake@firsttake
+```
+
+Then say **"Set up FirstTake for me."** It checks your computer, installs ffmpeg and the Python
+packages after asking you about each one, and finishes with a practice run on sample footage.
+Other ways to install, including without the plugin system, are under [Install](#install).
+
+---
+
 ## What it does for your edit
 
 Hand it the cards. You get back:
@@ -56,6 +71,67 @@ The cut is described once, as a plan, and FirstTake builds it in whichever edito
 
 If an editor cannot reproduce something in the plan exactly, the build **stops and names it**.
 It never quietly approximates. Details further down, in [Act 3](#act-3--finish).
+
+---
+
+## What you can say to it
+
+You work with FirstTake the way you'd brief an assistant editor: in plain words, with timecodes as
+rough pointers.
+
+**Before the shoot**
+- *"Here's my kit: a Canon C300 with the EF 24-105mm f/4L IS II USM, RØDE Wireless GO II lav mics, and two 2 TB SanDisk Extreme PRO SSDs. Set up my kit profile."*
+- *"Here's a photo of the room. Where should I put the cameras, the lights and the interview chairs?"*
+- *"Generate a run sheet for the shoot day: call times, setup order and the checklist."*
+
+**On the day**
+- *"Here's the card from camera A. Offload it to both drives and verify every copy."*
+- *"Check this test footage before we roll: exposure, focus and audio levels."*
+
+**Cutting words and fillers**
+- *"Around 00:12:40 I say 'so, um, okay, let's, uh, talk about the launch'. Trim it so it starts at 'let's talk about the launch'."*
+- *"Drop 'and honestly, you know' so the line reads 'the first version was the hardest'."*
+- *"Trim the first half second. He's still settling into the chair, and it looks odd right at the top."*
+- *"The client asked to lose the question at about 21:10 and his whole answer, through roughly 22:05."*
+
+**Fixing jumps and seams**
+- *"The join at 00:03:15 still feels abrupt. Start the next section at 'what surprised me', and find a way to smooth it."*
+- *"You can see his head jump where the clips meet. Cut to the wide shot right after he says 'customers'."*
+
+**Audio**
+- *"At 00:08:22 one word jumps out louder than the rest of the sentence. Should we just pull it down, or is something else going on?"*
+- *"He re-recorded that line (the file's in Downloads). Swap it in for the original and make it match the room."*
+- *"Playing it back in Resolve, the audio crackles."*
+
+**Structure, B-roll, titles and graphics**
+- *"Start with the strongest teaser you found, then the title card over music with no talking, then the interview."*
+- *"For the intro, go through my B-roll, find shots we haven't used yet, and assemble them so they feel conceptually right and cinematic."*
+- *"Retitle it '[Guest] on [Topic]', rebuild the title card and show me a preview so I can check the spacing."*
+- *"The new logo is in Downloads. Put it on the shorts and the main video, the same size as last time."*
+
+**Framing and look**
+- *"Check the framing on both angles. We deliver at 1080, so would a little punch-in, trim or rotation make it feel more cinematic?"*
+- *"Grade it the way a professional colourist would for this kind of piece."*
+- *"Cover that line with the product shot, then bring his name card in on the next shot."*
+
+**Social shorts**
+- *"The client picked shorts 2 and 5. Call short 5 'Lessons from Year One', and extend short 2 out to about 18:40."*
+- *"Carry the fixes from short 3 into the main video. Find your own cover for the cut, since the vertical crop won't work there."*
+
+**Captions, transcripts and delivery**
+- *"Make subtitles for the latest review copy, and keep them in sync with every new render."*
+- *"The burned-in caption at 00:05:02 is missing a word."*
+- *"Render a ProRes 422 HQ of roughly 00:31:10 to 00:31:52. Tell me how big it'll be first."*
+- *"Get the newest version under 50 MB so I can email it."*
+
+**When the editor gets in the way**
+- *"I imported the timeline, but the mastered audio isn't there."*
+- *"The clip is 20 seconds long, but Resolve's timecode stops at 16 seconds."*
+- *"Resolve crashed, I just reopened it."*
+
+**Keeping it tidy**
+- *"Clean up the folder structure."*
+- *"Would any of this be helpful to submit back to FirstTake to add into the plugin?"*
 
 ---
 
