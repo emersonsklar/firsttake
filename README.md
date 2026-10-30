@@ -79,6 +79,15 @@ It never quietly approximates. Details further down, in [Act 3](#act-3--finish).
 You work with FirstTake the way you'd brief an assistant editor: in plain words, with timecodes as
 rough pointers. These are real requests from real projects (names replaced):
 
+**Before the shoot**
+- *"Here's my kit: two cameras, these lenses, a two-channel wireless lav, and these drives. Set up my kit profile."*
+- *"Here's a photo of the room. Where should I put the cameras, the lights and the interview chairs?"*
+- *"Generate a run sheet for the shoot day: call times, setup order and the checklist."*
+
+**On the day**
+- *"Here's the card from camera A. Offload it to both drives and verify every copy."*
+- *"Check this test footage before we roll: exposure, focus and audio levels."*
+
 **Cutting words and fillers**
 - *"When we start the actual questions at around 00:36:04, I say 'uh so [guest], uh uh [partner] has been'. Cut out the 'uh so… uh uh' and start with me saying [partner]."*
 - *"Cut the 'but that's of course' so the line reads 'continue to engage with the tools, experiment yourself'."*
@@ -94,8 +103,9 @@ rough pointers. These are real requests from real projects (names replaced):
 - *"[Guest] recorded a new voiceover of that line (the file's in Downloads). Put it in instead of her original audio, and make it sound consistent with the rest."*
 - *"I'm looking at it in Resolve and the audio is all crackly."*
 
-**Structure, titles and graphics**
+**Structure, B-roll, titles and graphics**
 - *"Open with the teaser (use your recommended #1), then the title card and jingle with no speech behind it, then the interview."*
+- *"For the intro, go through my B-roll, find shots we haven't used yet, and assemble them so they feel conceptually right and cinematic."*
 - *"Change the title to '[Guest] on [Topic]', regenerate the title card and let me preview it. I want to check the spacing and alignment."*
 - *"I got the official logo in Downloads. Use it in the shorts and the main video, at the same relative size as last episode."*
 
@@ -111,7 +121,7 @@ rough pointers. These are real requests from real projects (names replaced):
 **Captions, transcripts and delivery**
 - *"Generate an SRT for the latest review copy, and always keep the video and subtitles in sync."*
 - *"The burned-in subtitle after the cold open is missing the word 'I'."*
-- *"Render a ProRes 422 HQ of roughly 00:14:04:21 to 00:14:38:20. PR wants it ASAP. Tell me how big it'll be first."*
+- *"Render a ProRes 422 HQ of roughly 00:14:04:21 to 00:14:38:20. Tell me how big it'll be first."*
 - *"Render the newest version to something under 35 MB."*
 
 **When the editor gets in the way**
@@ -121,7 +131,7 @@ rough pointers. These are real requests from real projects (names replaced):
 
 **Keeping it tidy**
 - *"Clean up the folder structure."*
-- *"What from what we've done recently should go back into the core skill?"*
+- *"Would any of this be helpful to submit back to FirstTake to add into the plugin?"*
 
 ---
 
