@@ -80,7 +80,7 @@ You work with FirstTake the way you'd brief an assistant editor: in plain words,
 rough pointers. Most of these are real requests from client projects (names replaced):
 
 **Before the shoot**
-- *"Here's my kit: two cameras, these lenses, a two-channel wireless lav, and these drives. Set up my kit profile."*
+- *"Here's my kit: a Canon C300 with the EF 24-105mm f/4L IS II USM, RØDE Wireless GO II lav mics, and two 2 TB SanDisk Extreme PRO SSDs. Set up my kit profile."*
 - *"Here's a photo of the room. Where should I put the cameras, the lights and the interview chairs?"*
 - *"Generate a run sheet for the shoot day: call times, setup order and the checklist."*
 
