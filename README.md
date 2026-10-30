@@ -22,6 +22,21 @@ every tool here runs standalone — no assistant, no API key
 
 ---
 
+## Get started
+
+In Claude Code:
+
+```
+/plugin marketplace add emersonsklar/firsttake
+/plugin install firsttake@firsttake
+```
+
+Then say **"Set up FirstTake for me."** It checks your computer, installs ffmpeg and the Python
+packages after asking you about each one, and finishes with a practice run on sample footage.
+Other ways to install, including without the plugin system, are under [Install](#install).
+
+---
+
 ## What it does for your edit
 
 Hand it the cards. You get back:
@@ -56,6 +71,57 @@ The cut is described once, as a plan, and FirstTake builds it in whichever edito
 
 If an editor cannot reproduce something in the plan exactly, the build **stops and names it**.
 It never quietly approximates. Details further down, in [Act 3](#act-3--finish).
+
+---
+
+## What you can say to it
+
+You work with FirstTake the way you'd brief an assistant editor: in plain words, with timecodes as
+rough pointers. These are real requests from real projects (names replaced):
+
+**Cutting words and fillers**
+- *"When we start the actual questions at around 00:36:04, I say 'uh so [guest], uh uh [partner] has been'. Cut out the 'uh so… uh uh' and start with me saying [partner]."*
+- *"Cut the 'but that's of course' so the line reads 'continue to engage with the tools, experiment yourself'."*
+- *"Cut the first 00:00:00:20. She's mid-sentence and takes a deep breath, so it's weird right at the start."*
+- *"[Partner] asked to cut the question starting around 07:38 through her answer ending around 08:14."*
+
+**Fixing jumps and seams**
+- *"The cut from 00:01:43 to 00:01:44 is still abrupt. That next section should start at 'how do you think', and we need some clever smoothing there."*
+- *"It caught a little of the next clip and you can see her face jump. Cut back to the wide shot after she says 'users'."*
+
+**Audio**
+- *"At 00:00:36:04 the word sounds quite loud compared with what came before. Would lowering it a tad help, or is there something else?"*
+- *"[Guest] recorded a new voiceover of that line (the file's in Downloads). Put it in instead of her original audio, and make it sound consistent with the rest."*
+- *"I'm looking at it in Resolve and the audio is all crackly."*
+
+**Structure, titles and graphics**
+- *"Open with the teaser (use your recommended #1), then the title card and jingle with no speech behind it, then the interview."*
+- *"Change the title to '[Guest] on [Topic]', regenerate the title card and let me preview it. I want to check the spacing and alignment."*
+- *"I got the official logo in Downloads. Use it in the shorts and the main video, at the same relative size as last episode."*
+
+**Framing and look**
+- *"Check the framing of both the wide and the tight shot. Since we post at 1080, would zooming, trimming or rotating help the documentary feel?"*
+- *"Make the grade whatever's standard for professional work."*
+- *"Use the product shot over that line instead of her, then have her name card appear in the next shot."*
+
+**Social shorts**
+- *"[Reviewer] liked #1 and #4. For #4, change the title to 'Advice for Builders'. For #1, extend her section to around 12:36."*
+- *"Bring the edits from short 4 over to the main video. Work out your own cover for the cut, since we don't want the vertical crop."*
+
+**Captions, transcripts and delivery**
+- *"Generate an SRT for the latest review copy, and always keep the video and subtitles in sync."*
+- *"The burned-in subtitle after the cold open is missing the word 'I'."*
+- *"Render a ProRes 422 HQ of roughly 00:14:04:21 to 00:14:38:20. PR wants it ASAP. Tell me how big it'll be first."*
+- *"Render the newest version to something under 35 MB."*
+
+**When the editor gets in the way**
+- *"I imported the timeline but the mastered audio isn't in there."*
+- *"The video is 16 seconds long but the timecode in Resolve only goes to 13:03."*
+- *"Resolve crashed, I just reopened it."*
+
+**Keeping it tidy**
+- *"Clean up the folder structure."*
+- *"What from what we've done recently should go back into the core skill?"*
 
 ---
 
