@@ -77,7 +77,7 @@ It never quietly approximates. Details further down, in [Act 3](#act-3--finish).
 ## What you can say to it
 
 You work with FirstTake the way you'd brief an assistant editor: in plain words, with timecodes as
-rough pointers. These are real requests from real projects (names replaced):
+rough pointers. Most of these are real requests from client projects (names replaced):
 
 **Before the shoot**
 - *"Here's my kit: two cameras, these lenses, a two-channel wireless lav, and these drives. Set up my kit profile."*
