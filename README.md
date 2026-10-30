@@ -77,7 +77,7 @@ It never quietly approximates. Details further down, in [Act 3](#act-3--finish).
 ## What you can say to it
 
 You work with FirstTake the way you'd brief an assistant editor: in plain words, with timecodes as
-rough pointers. Most of these are real requests from client projects (names replaced):
+rough pointers.
 
 **Before the shoot**
 - *"Here's my kit: a Canon C300 with the EF 24-105mm f/4L IS II USM, RØDE Wireless GO II lav mics, and two 2 TB SanDisk Extreme PRO SSDs. Set up my kit profile."*
@@ -89,44 +89,44 @@ rough pointers. Most of these are real requests from client projects (names repl
 - *"Check this test footage before we roll: exposure, focus and audio levels."*
 
 **Cutting words and fillers**
-- *"When we start the actual questions at around 00:36:04, I say 'uh so [guest], uh uh [partner] has been'. Cut out the 'uh so… uh uh' and start with me saying [partner]."*
-- *"Cut the 'but that's of course' so the line reads 'continue to engage with the tools, experiment yourself'."*
-- *"Cut the first 00:00:00:20. She's mid-sentence and takes a deep breath, so it's weird right at the start."*
-- *"[Partner] asked to cut the question starting around 07:38 through her answer ending around 08:14."*
+- *"Around 00:12:40 I say 'so, um, okay, let's, uh, talk about the launch'. Trim it so it starts at 'let's talk about the launch'."*
+- *"Drop 'and honestly, you know' so the line reads 'the first version was the hardest'."*
+- *"Trim the first half second. He's still settling into the chair, and it looks odd right at the top."*
+- *"The client asked to lose the question at about 21:10 and his whole answer, through roughly 22:05."*
 
 **Fixing jumps and seams**
-- *"The cut from 00:01:43 to 00:01:44 is still abrupt. That next section should start at 'how do you think', and we need some clever smoothing there."*
-- *"It caught a little of the next clip and you can see her face jump. Cut back to the wide shot after she says 'users'."*
+- *"The join at 00:03:15 still feels abrupt. Start the next section at 'what surprised me', and find a way to smooth it."*
+- *"You can see his head jump where the clips meet. Cut to the wide shot right after he says 'customers'."*
 
 **Audio**
-- *"At 00:00:36:04 the word sounds quite loud compared with what came before. Would lowering it a tad help, or is there something else?"*
-- *"[Guest] recorded a new voiceover of that line (the file's in Downloads). Put it in instead of her original audio, and make it sound consistent with the rest."*
-- *"I'm looking at it in Resolve and the audio is all crackly."*
+- *"At 00:08:22 one word jumps out louder than the rest of the sentence. Should we just pull it down, or is something else going on?"*
+- *"He re-recorded that line (the file's in Downloads). Swap it in for the original and make it match the room."*
+- *"Playing it back in Resolve, the audio crackles."*
 
 **Structure, B-roll, titles and graphics**
-- *"Open with the teaser (use your recommended #1), then the title card and jingle with no speech behind it, then the interview."*
+- *"Start with the strongest teaser you found, then the title card over music with no talking, then the interview."*
 - *"For the intro, go through my B-roll, find shots we haven't used yet, and assemble them so they feel conceptually right and cinematic."*
-- *"Change the title to '[Guest] on [Topic]', regenerate the title card and let me preview it. I want to check the spacing and alignment."*
-- *"I got the official logo in Downloads. Use it in the shorts and the main video, at the same relative size as last episode."*
+- *"Retitle it '[Guest] on [Topic]', rebuild the title card and show me a preview so I can check the spacing."*
+- *"The new logo is in Downloads. Put it on the shorts and the main video, the same size as last time."*
 
 **Framing and look**
-- *"Check the framing of both the wide and the tight shot. Since we post at 1080, would zooming, trimming or rotating help the documentary feel?"*
-- *"Make the grade whatever's standard for professional work."*
-- *"Use the product shot over that line instead of her, then have her name card appear in the next shot."*
+- *"Check the framing on both angles. We deliver at 1080, so would a little punch-in, trim or rotation make it feel more cinematic?"*
+- *"Grade it the way a professional colourist would for this kind of piece."*
+- *"Cover that line with the product shot, then bring his name card in on the next shot."*
 
 **Social shorts**
-- *"[Reviewer] liked #1 and #4. For #4, change the title to 'Advice for Builders'. For #1, extend her section to around 12:36."*
-- *"Bring the edits from short 4 over to the main video. Work out your own cover for the cut, since we don't want the vertical crop."*
+- *"The client picked shorts 2 and 5. Call short 5 'Lessons from Year One', and extend short 2 out to about 18:40."*
+- *"Carry the fixes from short 3 into the main video. Find your own cover for the cut, since the vertical crop won't work there."*
 
 **Captions, transcripts and delivery**
-- *"Generate an SRT for the latest review copy, and always keep the video and subtitles in sync."*
-- *"The burned-in subtitle after the cold open is missing the word 'I'."*
-- *"Render a ProRes 422 HQ of roughly 00:14:04:21 to 00:14:38:20. Tell me how big it'll be first."*
-- *"Render the newest version to something under 35 MB."*
+- *"Make subtitles for the latest review copy, and keep them in sync with every new render."*
+- *"The burned-in caption at 00:05:02 is missing a word."*
+- *"Render a ProRes 422 HQ of roughly 00:31:10 to 00:31:52. Tell me how big it'll be first."*
+- *"Get the newest version under 50 MB so I can email it."*
 
 **When the editor gets in the way**
-- *"I imported the timeline but the mastered audio isn't in there."*
-- *"The video is 16 seconds long but the timecode in Resolve only goes to 13:03."*
+- *"I imported the timeline, but the mastered audio isn't there."*
+- *"The clip is 20 seconds long, but Resolve's timecode stops at 16 seconds."*
 - *"Resolve crashed, I just reopened it."*
 
 **Keeping it tidy**
