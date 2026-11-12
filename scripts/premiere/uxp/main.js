@@ -598,7 +598,8 @@ async function opProbe(job) {
       /* Which Constants actually exist at runtime, and what their members are.
        *
        * 🔴 Measured 26.5.1: `Constants.ProjectItemType` does NOT survive JSON — and separately,
-       * a SEQUENCE project item reports `type === 1`, the same value a clip reports. So `type`
+       * a SEQUENCE project item reports `type === 1`, the same value a clip reports. 27.0 has the
+       * enum (with values unlike the declaration's) and the sequence still reports 1. So `type`
        * cannot tell a sequence from a clip, and code switching on that enum would mis-sort every
        * item while looking perfectly reasonable. The backend duck-types the cast result instead.
        * This dump is here so the next person does not have to rediscover it. */
