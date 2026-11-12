@@ -301,13 +301,13 @@ Full detail in `references/premiere-uxp.md`; these are the ones that cost an aft
 - 🔴 **Both callbacks are synchronous, so you cannot `await` inside either.** Awaiting commits an **empty
   transaction**, which returns without error and does nothing.
 - 🔴 **Source in/out lives on the ProjectItem, not on the placement call**, so **two clips cut from the same
-  file cannot be batched.** Batch them and every placement takes the *last* in/out applied — and the
+  file cannot be batched** (measured on 27.0, too). Batch them and every placement takes the *last* in/out applied — and the
   timeline still tiles perfectly with no gaps, so a gap check cannot see it.
 
-And two runtime facts that invalidate the obvious implementation: `Constants.ProjectItemType` is
-**`undefined` at runtime** despite appearing in the declarations (a *sequence* item reports `type === 1`, the
-same value a clip reports — duck-type the cast result instead), and `AE.ADBE Opacity` exposes **two params
-both named "Blend Mode"**, so "take the first match by name" is a coin toss. The backend **throws on an
+And two runtime facts that invalidate the obvious implementation. A *sequence* item reports `type === 1`,
+the same value a clip reports, so duck-type the cast result instead (on 26.5.1 `Constants.ProjectItemType`
+was **`undefined` at runtime** despite appearing in the declarations; 27.0 has it). And `AE.ADBE Opacity`
+exposes **two params both named "Blend Mode"**, so "take the first match by name" is a coin toss. The backend **throws on an
 ambiguous name** rather than picking one.
 
 ---
