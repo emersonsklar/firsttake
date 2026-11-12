@@ -116,7 +116,7 @@ Each of these cost a round trip. They are the reason `--probe` exists.
   matching "Input LUT" and handing it a string gives *"Illegal Parameter type"*.
 - ⚠️ **Runtime `Constants` differ from the declarations**: `ExportType` values are strings,
   `InterpolationMode` is `LINEAR:0, HOLD:4, BEZIER:5`, `MediaType` values are opaque objects. The
-  declared enums have no initializers, so their implied values are simply alphabetical order. On
+  declared enums have no initializers, so the values can only be learned at runtime. On
   **27.0**, `Component.getInstanceName()` is declared and is not a function.
 - 🔴 **`render` returns when Premiere ACCEPTS the export, not when the file is done** — ok in half a
   second for a job that takes a minute. Anything measuring the output must poll its frame count

@@ -195,9 +195,10 @@ item still reports `type === 1` — the same value a clip reports. Duck-type the
 ### Runtime Constants do not match the declarations
 
 `CONFIRMED` on 26.5.1 and again on **27.0**. Always use the named member; never a literal, and never
-the declaration's apparent ordering. The cause is mechanical: `premierepro.d.ts` declares these enums
-**without initializers** (`enum InterpolationMode { BEZIER, HOLD, LINEAR, … }`), so TypeScript numbers
-them 0, 1, 2… in alphabetical order, and the runtime values are something else entirely.
+the declaration's apparent ordering. `premierepro.d.ts` declares these enums **without
+initializers** (`enum InterpolationMode { BEZIER, HOLD, LINEAR, … }`). In a declaration file that
+makes every member's value unknown to TypeScript — it implies no numbers — so the declarations
+cannot tell you the values, and their order is not the runtime order. Read the values at runtime.
 
 | Constant | Runtime |
 |---|---|
