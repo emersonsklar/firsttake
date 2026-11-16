@@ -23,7 +23,8 @@ its traps.
 | `UNVERIFIED` | Not yet run here. **Behaviour is UNVERIFIED until the probe has run**, without exception |
 
 `CONFIRMED` facts on this page were taken from **Premiere Pro 26.5.1.1** (the 2026 release) and
-from the type declarations at `github.com/adobe/premierepro-types`.
+from the type declarations at `github.com/adobe/premierepro-types`. Facts marked **27.0** were
+re-measured on **Premiere Pro 27.0.0** with a standalone repro panel; where 27.0 differs, it says so.
 
 🔴 **Nothing in the Premiere backend is trusted until `premiere_bridge.py --probe` has run against
 the Premiere build in front of you, and `nle_ir.CAPABILITIES["premiere"]` still says `UNVERIFIED`
@@ -153,11 +154,19 @@ handles to Premiere objects do not survive the async boundaries between acquirin
 `project.lockedAccess(cb)` freezes the project for the duration, and a transaction may be opened
 inside it — so the split is: **await outside, cast and `create*Action` inside.**
 
+**27.0:** a `ClipProjectItem` cast before a bare `await` — nothing changing the project in between —
+was used inside the lock without error. That fits `PREMIERE-STATUS.md`: a handle is invalidated by a
+project **mutation**, not by the `await` itself. The mutation case was not retested, so keep the split.
+
 🔴 **Both callbacks are synchronous, so you cannot `await` inside either.** Awaiting inside commits
 an empty transaction, which returns without error and does nothing — the Premiere-shaped member of
 the same family as Resolve's "calls that report success and do nothing". The backend's helper
 asserts its callback actually ran, because an empty transaction is otherwise indistinguishable
 from a successful one.
+
+**27.0**, measured: with an `async` callback that awaits before `addAction`, `executeTransaction`
+returns **`true`**, the timeline is unchanged, and the late `addAction` throws *"Requires locked
+access"* — inside the async continuation, where the caller never sees it.
 
 ### `ProjectItem` is a base type — almost everything needs a cast
 
@@ -176,16 +185,20 @@ Calling `it.getName()` fails loudly, which is the *good* outcome. The dangerous 
 mistake inside a `try/catch` in the read-back path: it set every clip's media path to `null`, so a
 plan-versus-timeline diff would have passed **without comparing anything**.
 
-⚠️ **Do not switch on `ProjectItem.type` to decide what something is.** Measured: `Constants.ProjectItemType`
-is **`undefined` at runtime** despite appearing in the declarations, and a *sequence* project item
-reports `type === 1` — the same value a clip reports. Duck-type the cast **result** instead
+⚠️ **Do not switch on `ProjectItem.type` to decide what something is.** Measured on 26.5.1:
+`Constants.ProjectItemType` was **`undefined` at runtime** despite appearing in the declarations. On
+**27.0** it exists (`CLIP 1, BIN 2, ROOT 3, FILE 4, STYLE 5, COMPOUND 8`), but a *sequence* project
+item still reports `type === 1` — the same value a clip reports. Duck-type the cast **result** instead
 (`typeof f.getItems === "function"`). To tell a sequence from media, use
 `ClipProjectItem.getContentType()` against `Constants.ContentType.SEQUENCE` (= 2).
 
 ### Runtime Constants do not match the declarations
 
-`CONFIRMED` on 26.5.1. Always use the named member; never a literal, and never the declaration's
-apparent ordering.
+`CONFIRMED` on 26.5.1 and again on **27.0**. Always use the named member; never a literal, and never
+the declaration's apparent ordering. `premierepro.d.ts` declares these enums **without
+initializers** (`enum InterpolationMode { BEZIER, HOLD, LINEAR, … }`). In a declaration file that
+makes every member's value unknown to TypeScript — it implies no numbers — so the declarations
+cannot tell you the values, and their order is not the runtime order. Read the values at runtime.
 
 | Constant | Runtime |
 |---|---|
@@ -194,11 +207,14 @@ apparent ordering.
 | `TrackItemType` | `EMPTY: 0, CLIP: 1, TRANSITION: 2, PREVIEW: 3, FEEDBACK: 4` |
 | `MediaType` | members exist but their values are **opaque objects**, not numbers. Pass them through; do not compare them |
 | `ContentType` | `MEDIA: 1, SEQUENCE: 2, ANY: 4294967295` |
-| `ProjectItemType` | 🔴 **absent entirely** |
+| `ProjectItemType` | absent on 26.5.1; on **27.0** `CLIP: 1, BIN: 2, ROOT: 3, FILE: 4, STYLE: 5, COMPOUND: 8` — **not** the declaration's order |
+
+Members declared but missing at runtime are the same trap from the other side: on **27.0**
+`Component.getInstanceName()` is declared and **is not a function**.
 
 ### Source in/out lives on the ProjectItem, not on the placement call
 
-🔴 `DECLARED`, and the highest-risk difference from Resolve. Resolve's clip dict carries
+🔴 `CONFIRMED` on **27.0**, and the highest-risk difference from Resolve. Resolve's clip dict carries
 `startFrame` / `endFrame` / `recordFrame` / `trackIndex` together, so a whole timeline goes in one
 `AppendToTimeline`. Premiere's `createOverwriteItemAction(projectItem, time, videoTrackIndex,
 audioTrackIndex)` has **no in/out arguments**; the in and out points belong to the ProjectItem
@@ -209,6 +225,20 @@ sequentially, one item at a time. Batch them and every placement takes the *last
 and the timeline still tiles perfectly with no gaps, so a gap check cannot see it. That is the same
 failure signature as Resolve's over-long still sliding the next clip: a plausible timeline that
 does not match the plan. Compare each item's start against the position it was asked for.
+
+Measured on 27.0 with two cuts from one 30p file — A at source 1–2 s, B at source 5–6 s:
+
+| how | result |
+|---|---|
+| set in/out, place, set in/out, place — **four transactions** | ✅ each cut keeps its own source in/out |
+| the same four actions in **one transaction** | 🔴 returns `true`; **both** track items play source 4.96–5.96 s (cut B) |
+| one `createSubClipAction` per cut, then place the subclips | track items report in/out **relative to the subclip** (0–0.96 s for both), so a read-back cannot tell which part of the file each plays; each came out one sequence frame short |
+
+⚠️ **Source in points snap to the SEQUENCE's frame grid, not the clip's.** In a 23.976 sequence, a
+30p ProjectItem whose in point reads back as exactly 1.000 s lands with track-item source in
+**0.9593 s** — 23 frames at 23.976, rounded down — which falls between two source frames. Lengths
+and record positions snap the same way (1.000 s → 1.001 s, 2.000 s → 2.002 s). Build in a sequence
+at the media's rate, or expect sub-frame source offsets.
 
 ### Settled by the probe
 
@@ -236,7 +266,10 @@ named `" "` — a single space. So:
 
 The backend throws on an ambiguous name rather than picking one, because writing to the wrong of two
 identically named params yields a timeline that renders with the effect set on something nobody
-chose. Confirmed present and keyframable by name: `AE.ADBE Motion` → `Position` (0), `Scale` (1);
+chose. **27.0** is the same for Opacity and Motion, and Lumetri is far worse: of its **130** params,
+**38 are named `" "` and 14 are named `""`**, and `"Input LUT"` (6, 7), `"Look"` (34, 35) and
+`"Saturation"` (16, 43, 105, 106) each appear more than once. No `ComponentParam` has a `matchName`;
+`displayName` is the only identifier the declarations give it. Confirmed present and keyframable by name: `AE.ADBE Motion` → `Position` (0), `Scale` (1);
 `AE.ADBE Opacity` → `Opacity` (0). Motion also exposes native `Crop Left/Top/Right/Bottom` (7–10),
 a second route to a reframe.
 
@@ -302,8 +335,8 @@ naming problem.
 | route | result |
 |---|---|
 | ASC CDL | no entry point anywhere — searched CDL, slope, offset, power, saturation |
-| `ClipProjectItem.createSetInputLUTIDAction()` | wants an opaque **ID**, not a path, and nothing documents how to obtain one for a cube you generated |
-| `AE.ADBE Lumetri` parameters | **130 parameters, ZERO accept a string.** `LUTAsset` (128) and `LookAsset` (129) exist but accept neither number, string nor boolean, and are not keyframable |
+| `ClipProjectItem.createSetInputLUTIDAction()` | wants an opaque **ID**, not a path, and nothing documents how to obtain one for a cube you generated. **27.0:** returns `true` for a full path, `"identity.cube"` and `"identity"` alike — an unknown ID is accepted silently, and there is no getter to check |
+| `AE.ADBE Lumetri` parameters | **130 parameters, ZERO accept a string.** `LUTAsset` (128) and `LookAsset` (129) exist but accept neither number, string nor boolean, and are not keyframable. **27.0:** `"Input LUT"` (6, 7) and `"Look"` (34, 35) reject a path with *"Illegal Parameter type"* but **accept numbers**, which read back — plausibly an index into Lumetri's dropdown. `UNVERIFIED` what a number selects, how a .cube maps to one, or whether the order is stable |
 | `ProjectColorSettings` | only graphics-white luminance |
 
 ### And no, there is no QE back door

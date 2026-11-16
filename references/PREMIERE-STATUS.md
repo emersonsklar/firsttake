@@ -3,7 +3,9 @@
 ⚠️ **EARLY ACCESS.** `nle-backends.md` recommends DaVinci Resolve and means it. This file is the
 working state of the Premiere backend, for whoever picks it up next.
 
-Last updated 2026-09-27. Everything below was measured on **Premiere Pro 26.5.1.1**, macOS.
+Last updated 2026-11-12. Everything below was measured on **Premiere Pro 26.5.1.1**, macOS, except
+where marked **27.0** — re-measured on **27.0.0** with a standalone repro panel. Detail in
+`premiere-uxp.md`.
 
 ---
 
@@ -97,18 +99,25 @@ Each of these cost a round trip. They are the reason `--probe` exists.
   ramp reads back as `[0, 5, 0, 5]` and changes nothing visible.
 - 🔴 **`ProjectItem` is a base type.** `name` and `type` are *properties*; `getMediaFilePath`,
   `getItems` and the in/out setters need `ClipProjectItem.cast()` / `FolderItem.cast()`. Duck-type
-  the cast **result** — `Constants.ProjectItemType` is absent at runtime, and a *sequence* reports
-  `type === 1` exactly as a clip does.
+  the cast **result** — `Constants.ProjectItemType` is absent at runtime on 26.5.1 (present on
+  **27.0**, with values unlike the declaration's), and a *sequence* reports `type === 1` exactly as a
+  clip does.
 - 🔴 **A handle is invalidated by a project MUTATION**, not merely by an `await`. `applyCrop` gets
   away with awaiting a component chain because nothing changes in between; the audio sweep reusing an
   editor acquired before 2228 frames were placed threw *"The script object is no longer valid"*.
+  **27.0** agrees: a cast before a bare `await` was still valid.
+- 🔴 **Two cuts from one file cannot share a transaction** — `CONFIRMED` on **27.0**: both track
+  items take the last in/out set, and the transaction returns `true`. One transaction per step.
 - 🔴 **`VideoFilterComponent` is declared `{}`** — an opaque handle. Parameters only exist once the
   filter is attached to a chain and read back as a `Component`.
 - 🔴 **Parameter display names are not unique.** `AE.ADBE Opacity` has *two* params called
-  `"Blend Mode"`; `AE.ADBE Motion` param 3 is named `" "`. And a name says nothing about type —
+  `"Blend Mode"`; `AE.ADBE Motion` param 3 is named `" "`. On **27.0**, 52 of Lumetri's 130 params
+  are named `" "` or `""`. And a name says nothing about type —
   matching "Input LUT" and handing it a string gives *"Illegal Parameter type"*.
 - ⚠️ **Runtime `Constants` differ from the declarations**: `ExportType` values are strings,
-  `InterpolationMode` is `LINEAR:0, HOLD:4, BEZIER:5`, `MediaType` values are opaque objects.
+  `InterpolationMode` is `LINEAR:0, HOLD:4, BEZIER:5`, `MediaType` values are opaque objects. The
+  declared enums have no initializers, so the values can only be learned at runtime. On
+  **27.0**, `Component.getInstanceName()` is declared and is not a function.
 - 🔴 **`render` returns when Premiere ACCEPTS the export, not when the file is done** — ok in half a
   second for a job that takes a minute. Anything measuring the output must poll its frame count
   first, or it measures a truncated file and reports a content bug that is really a race.
@@ -123,7 +132,9 @@ Each of these cost a round trip. They are the reason `--probe` exists.
 2. `createSetInputLUTIDAction` wants an opaque **ID**, not a path, with nothing documenting how to
    get one.
 3. `AE.ADBE Lumetri` exposes **130 parameters and not one accepts a string**. `LUTAsset` and
-   `LookAsset` exist but accept neither number, string nor boolean and are not keyframable.
+   `LookAsset` exist but accept neither number, string nor boolean and are not keyframable. On
+   **27.0**, `"Input LUT"` and `"Look"` accept a number (likely a dropdown index, `UNVERIFIED`), and
+   `createSetInputLUTIDAction` accepts any string without error.
 
 And **no QE back door**: `ppro.QE/qe/enableQE/getQE/Advanced*`, `globalThis.qe/app/QE`, and
 `require("premierepro-advanced"|"-internal"|"-qe")` are all absent. QE was ExtendScript; UXP has no
